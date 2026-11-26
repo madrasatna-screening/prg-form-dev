@@ -232,9 +232,9 @@
         <div class="rl">الاسم</div>
         <div class="rl">التاريخ</div>
       </div>
-      <div class="h">مشاهد اولي</div>
-      <div class="h">مشاهد ثانيه</div>
-      <div class="h">مشاهد ثالثه</div>
+      <div class="h">مشاهدة أولى</div>
+      <div class="h">مشاهدة ثانية</div>
+      <div class="h">مشاهدة ثالثة</div>
     </div>
     <div class="fr-sig">
       <span>Screener</span>
@@ -1077,6 +1077,7 @@ onAuthStateChanged(auth, async u => {
   const username = u.email.split("@")[0];
   try {
     const snap = await getDoc(doc(db, "allowed", u.uid));
+    if (snap.exists() && snap.data().role === "library") { lock(false); return; }   // library users don't own the Producer field
     if (snap.exists() && snap.data().displayName) myName = String(snap.data().displayName).trim();
   } catch (e) { /* offline: fall back below */ }
   if (!myName) myName = KNOWN[username] || "";
@@ -1134,11 +1135,11 @@ window.addEventListener("beforeprint", apply);
 })();
 </script>
 
-<!-- ===== تسليماتي + ملاحظات المكتبة داخل الورقة ===== -->
+<!-- ===== تسليماتي (المنتج) + المراجعة داخل الاستمارة (المكتبة) ===== -->
 <style>
   .mineov{position:fixed;inset:0;z-index:9500;background:rgba(20,28,38,.7);display:flex;align-items:center;justify-content:center;direction:rtl;font-family:"Segoe UI",Tahoma,Arial,sans-serif}
   .mineov[hidden]{display:none}
-  .minebox{background:#fff;border-radius:12px;width:min(820px,96vw);max-height:88vh;display:flex;flex-direction:column;box-shadow:0 4px 20px rgba(0,0,0,.25)}
+  .minebox{background:#fff;border-radius:12px;width:min(860px,96vw);max-height:88vh;display:flex;flex-direction:column;box-shadow:0 4px 20px rgba(0,0,0,.25)}
   .minebox header{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #e1e4e8}
   .minebox header h2{margin:0;font-size:17px;flex:1}
   .minebox header button{border:0;border-radius:6px;padding:6px 12px;background:#e3e6ea;cursor:pointer;font:inherit}
@@ -1149,6 +1150,9 @@ window.addEventListener("beforeprint", apply);
   .minebody td.c{direction:ltr;text-align:left;white-space:nowrap}
   .minebody td button{border:0;border-radius:6px;padding:5px 12px;background:#1f5fbf;color:#fff;cursor:pointer;font:inherit}
   .mine-empty{padding:30px;text-align:center;color:#555}
+  .mine-tabs{display:flex;gap:8px;margin-bottom:10px}
+  .mine-tabs button{border:0;border-radius:6px;padding:6px 14px;background:#cfd5dc;cursor:pointer;font:inherit}
+  .mine-tabs button.on{background:#1f5fbf;color:#fff}
   .st{display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap}
   .st.submitted{background:#fff3cd;color:#7a5a00}
   .st.changes{background:#f8d7da;color:#8a1c28}
@@ -1159,17 +1163,36 @@ window.addEventListener("beforeprint", apply);
   #openbar{direction:rtl;font-family:"Segoe UI",Tahoma,Arial,sans-serif;font-size:14px;line-height:1.7;padding:9px 16px;background:#fff8e1;border-bottom:2px solid #e0b100;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   #openbar[hidden]{display:none}
   #openbar .ob-t{flex:1;min-width:220px}
-  #openbar button{border:0;border-radius:6px;padding:5px 12px;background:#e3e6ea;cursor:pointer;font:inherit}
-  .donechk{display:block;margin:3px auto 0;width:15px;height:15px;cursor:pointer}
+  #openbar button{border:0;border-radius:6px;padding:6px 12px;background:#e3e6ea;cursor:pointer;font:inherit}
+  #openbar button.ok{background:#1d7a3a;color:#fff} #openbar button.pr{background:#1f5fbf;color:#fff}
+  #openbar button:disabled{opacity:.55;cursor:default}
+  #sheet td.desc{position:relative}
+  #sheet td.has-done{padding-left:84px}
+  .donewrap{position:absolute;left:5px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:5px;background:#e8f0fe;border:1px solid #1f5fbf;border-radius:6px;padding:3px 9px;font:700 13px "Segoe UI",Tahoma,Arial,sans-serif;color:#16487f;cursor:pointer;direction:rtl;white-space:nowrap}
+  .donewrap.on{background:#d4edda;border-color:#17602b;color:#17602b}
+  .donewrap.off{opacity:.55;cursor:default}
+  .donechk{width:17px;height:17px;margin:0;cursor:pointer}
+  #sheet.pdfmode .donewrap{display:none}
+  body:not(.libmode) #sheet:not(.pdfmode) .dtag{display:none}
   .dtag{font-weight:700;margin-inline-start:6px}
   .fr-acc .box.big{display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:14pt}
   .fr-scr .vl{font-size:11pt;line-height:1.5;direction:rtl}
-  @media print{.mineov,#openbar,.donechk{display:none!important}}
+  .fr-scr .vin{width:92%;border:0;border-bottom:1px dashed #666;background:#fffbe6;font:inherit;font-size:11pt;text-align:center;direction:rtl}
+  /* library mode: everything above the notes table is read-only */
+  body.libmode #sheet .grid,body.libmode #sheet .dur,body.libmode #sheet .checks{pointer-events:none}
+  body.libmode #btnSavePdf,body.libmode #btnNew,body.libmode #btnMine{display:none!important}
+  #sheet tr[data-ed] td[contenteditable="true"]{background:#fffbe6;outline:1px dashed #e0b100;outline-offset:-2px;cursor:text}
+  #sheet tr[data-ed] td.mark{background:#fffbe6;cursor:pointer}
+  @media print{.mineov,#openbar,.donewrap{display:none!important}}
 </style>
 <div class="mineov" id="mineov" hidden>
   <div class="minebox">
-    <header><h2>تسليماتي</h2><button type="button" id="mineClose">إغلاق ✕</button></header>
+    <header><h2 id="mineTitle">تسليماتي</h2><button type="button" id="mineClose">إغلاق ✕</button></header>
     <div class="minebody">
+      <div class="mine-tabs" id="mineTabs" hidden>
+        <button type="button" data-tab="wait" class="on">منتظرة المشاهدة</button>
+        <button type="button" data-tab="done">اتراجعت</button>
+      </div>
       <div class="mine-legend">
         <span class="st submitted">تم التسليم</span>
         <span class="st changes">فيه ملاحظات</span>
@@ -1180,10 +1203,11 @@ window.addEventListener("beforeprint", apply);
     </div>
   </div>
 </div>
+<div id="mineToast" hidden style="position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#1d2733;color:#fff;padding:10px 18px;border-radius:8px;z-index:9600;font-family:'Segoe UI',Tahoma,Arial,sans-serif"></div>
 <script type="module">
 import { getApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { getFirestore, collection, query, where, onSnapshot, doc, updateDoc, serverTimestamp }
+import { getFirestore, collection, query, where, onSnapshot, doc, updateDoc, runTransaction, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const app = getApp();
@@ -1197,34 +1221,49 @@ const fmt = d => d ? d.toLocaleString("en-GB", { dateStyle: "short", timeStyle: 
 const fmtD = d => d ? d.toLocaleDateString("en-GB") : "";
 const lsGet = k => { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } };
 const lsSet = (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) {} };
+const toast = t => { const el = document.getElementById("mineToast"); el.textContent = t; el.hidden = false; setTimeout(() => el.hidden = true, 3500); };
 
 /* ---------- toolbar button ---------- */
 const tb = document.querySelector(".toolbar");
 const btn = document.createElement("button");
-btn.className = "btn"; btn.id = "btnMine"; btn.type = "button"; btn.hidden = true;
+btn.className = "btn"; btn.id = "btnMineMain"; btn.type = "button"; btn.hidden = true;
 tb.insertBefore(btn, document.getElementById("btnNew"));
-const setBtn = n => { btn.innerHTML = "📋 تسليماتي" + (n ? `<span class="mine-badge">${n}</span>` : ""); };
+let libMode = false, me = null;
+const setBtn = n => { btn.innerHTML = (libMode ? "📋 للمشاهدة" : "📋 تسليماتي") + (n ? `<span class="mine-badge">${n}</span>` : ""); };
 setBtn(0);
 
 const ov = document.getElementById("mineov"), tbl = document.getElementById("mineTable");
-let rows = [], stopList = null, stopRole = null, stopSub = null, stopNotes = null;
-let openId = lsGet(LS_OPEN), sub = null, notes = [];
+let rows = [], tab = "wait", firstLoad = true;
+let stopList = null, stopRole = null, stopSub = null, stopNotes = null;
+let openId = lsGet(LS_OPEN), sub = null, notes = [], vname = "";
+const isWait = r => r.status === "submitted" || r.status === "fixed";
 
 function renderList() {
-  if (!rows.length) { tbl.innerHTML = '<div class="mine-empty">لسه ماسلّمتش أي حلقة.</div>'; return; }
-  tbl.innerHTML = "<table><tr><th>التاريخ</th><th>الكود</th><th>القناة</th><th>الحالة</th><th>المراجعات</th><th></th></tr>"
-    + rows.map(r => {
+  document.getElementById("mineTitle").textContent = libMode ? "الحلقات للمشاهدة" : "تسليماتي";
+  document.getElementById("mineTabs").hidden = !libMode;
+  let list = rows;
+  if (libMode) list = rows.filter(r => tab === "wait" ? isWait(r) : !isWait(r))
+    .sort((a, b) => ((tab === "wait" ? 1 : -1) * ((a.last || a.date || 0) - (b.last || b.date || 0))));
+  if (!list.length) { tbl.innerHTML = '<div class="mine-empty">' + (libMode ? (tab === "wait" ? "مفيش حلقات منتظرة المشاهدة دلوقتي." : "لسه مفيش حلقات اتراجعت.") : "لسه ماسلّمتش أي حلقة.") + "</div>"; return; }
+  tbl.innerHTML = "<table><tr><th>التاريخ</th><th>الكود</th><th>" + (libMode ? "المنتج" : "القناة") + "</th><th>الحالة</th><th>المراجعات</th><th></th></tr>"
+    + list.map(r => {
       const s = LABEL[r.status] ? r.status : "submitted";
-      return `<tr><td>${esc(fmt(r.date))}</td><td class="c">${esc(r.code)}</td><td>${esc(r.channel)}</td>`
+      return `<tr><td>${esc(fmt(r.last || r.date))}</td><td class="c">${esc(r.code)}</td><td>${esc(libMode ? r.producer : r.channel)}</td>`
            + `<td><span class="st ${s}">${LABEL[s]}</span></td><td>${esc(r.round || 0)}</td>`
-           + `<td><button type="button" data-open="${esc(r.id)}">فتح</button></td></tr>`;
+           + `<td><button type="button" data-open="${esc(r.id)}">${libMode && isWait(r) ? "مشاهدة" : "فتح"}</button></td></tr>`;
     }).join("") + "</table>";
 }
+document.getElementById("mineTabs").addEventListener("click", e => {
+  const b = e.target.closest("[data-tab]"); if (!b) return;
+  tab = b.dataset.tab;
+  document.querySelectorAll("#mineTabs button").forEach(x => x.classList.toggle("on", x === b));
+  renderList();
+});
 tbl.addEventListener("click", e => {
   const b = e.target.closest("[data-open]"); if (!b) return;
   const r = rows.find(x => x.id === b.dataset.open); if (!r) return;
   if (!r.form) { alert("التسليمة دي اتسجلت قبل نظام المراجعة ومفيهاش نسخة كاملة من الاستمارة."); return; }
-  if (!confirm("هتفتح التسليمة دي مكان الاستمارة اللي قدامك، وأي بيانات مش محفوظة هتتمسح. تكمّل؟")) return;
+  if (!libMode && !confirm("هتفتح التسليمة دي مكان الاستمارة اللي قدامك، وأي بيانات مش محفوظة هتتمسح. تكمّل؟")) return;
   lsSet(LS_DRAFT, JSON.stringify(r.form)); lsSet(LS_OPEN, r.id);
   location.reload();
 });
@@ -1240,71 +1279,130 @@ function ensureRows(n) {
   }
   while (tbody.rows.length > Math.max(n, BASE)) tbody.deleteRow(-1);
 }
+function readEd() {
+  const out = [];
+  [...tbody.rows].filter(tr => tr.hasAttribute("data-ed")).forEach(tr => {
+    out.push({ tc: tr.cells[1].textContent.trim(), text: tr.cells[6].textContent.trim(),
+               cats: CATS.filter((c, j) => tr.cells[2 + j].textContent.trim() === "✓") });
+  });
+  return out;
+}
+function makeEditable(tr) {
+  tr.setAttribute("data-ed", "1");
+  tr.cells[1].contentEditable = "true"; tr.cells[6].contentEditable = "true";
+}
 function clearPaper() {
   if (!tbody) return;
   ensureRows(BASE);
   [...tbody.rows].forEach(tr => {
-    tr.cells[0].querySelector(".donechk")?.remove();
+    tr.cells[6].querySelector(".donewrap")?.remove(); tr.cells[6].classList.remove("has-done");
+    tr.removeAttribute("data-ed"); tr.cells[1].contentEditable = "false"; tr.cells[6].contentEditable = "false";
     tr.cells[1].textContent = ""; for (let i = 2; i <= 5; i++) tr.cells[i].textContent = ""; tr.cells[6].textContent = "";
   });
   document.querySelectorAll(".fr-scr .h .vl").forEach(x => x.remove());
   const acc = document.querySelector(".fr-acc .box"); if (acc) acc.textContent = "";
 }
+const canEdit = () => libMode && sub && sub.status !== "approved";
 function paintPaper() {
+  const keep = libMode ? readEd() : [];
   clearPaper();
   const list = notes.filter(n => n.kind === "note")
     .sort((a, b) => (a.round - b.round) || ((a.at || 0) - (b.at || 0)));
-  ensureRows(Math.max(BASE, list.length));
+  const edit = canEdit();
+  ensureRows(Math.max(BASE, list.length + (edit ? Math.max(keep.length, 4) : 0)));
   list.forEach((n, i) => {
     const tr = tbody.rows[i];
     tr.cells[1].textContent = n.tc || "";
     CATS.forEach((c, j) => { tr.cells[2 + j].textContent = (n.cats || []).includes(c) ? "✓" : ""; });
     tr.cells[6].textContent = n.text || "";
     if (n.done) { const b = document.createElement("b"); b.className = "dtag"; b.textContent = "✔ تم"; tr.cells[6].appendChild(b); }
-    const cb = document.createElement("input");
-    cb.type = "checkbox"; cb.className = "donechk"; cb.checked = !!n.done; cb.dataset.nid = n.id;
-    cb.disabled = !(sub && sub.status === "changes");
-    cb.title = "علّم «تم» بعد ما تنفّذ الملاحظة";
-    tr.cells[0].appendChild(cb);
+    if (!libMode) {
+      const lb = document.createElement("label");
+      const off = !(sub && sub.status === "changes");
+      lb.className = "donewrap" + (n.done ? " on" : "") + (off ? " off" : "");
+      lb.title = "علّم «تم» بعد ما تنفّذ الملاحظة";
+      const cb = document.createElement("input");
+      cb.type = "checkbox"; cb.className = "donechk"; cb.checked = !!n.done; cb.dataset.nid = n.id; cb.disabled = off;
+      lb.appendChild(cb); lb.appendChild(document.createTextNode("تم"));
+      tr.cells[6].classList.add("has-done"); tr.cells[6].appendChild(lb);
+    }
   });
-  const rounds = notes.filter(n => n.kind === "round").sort((a, b) => a.round - b.round).slice(-3);
-  document.querySelectorAll(".fr-scr .h").forEach((h, i) => {
-    const r = rounds[i]; if (!r) return;
+  if (edit) {
+    for (let i = list.length; i < tbody.rows.length; i++) {
+      const tr = tbody.rows[i]; makeEditable(tr);
+      const k = keep[i - list.length];
+      if (k) { tr.cells[1].textContent = k.tc; tr.cells[6].textContent = k.text; CATS.forEach((c, j) => { tr.cells[2 + j].textContent = k.cats.includes(c) ? "✓" : ""; }); }
+    }
+  }
+  const rounds = notes.filter(n => n.kind === "round").sort((a, b) => a.round - b.round);
+  const shown = edit && rounds.length >= 3 ? rounds.slice(-2) : rounds.slice(-3);
+  const hs = document.querySelectorAll(".fr-scr .h");
+  hs.forEach((h, i) => {
+    const r = shown[i]; if (!r) return;
     h.insertAdjacentHTML("beforeend", `<div class="vl">${esc(r.byName)}</div><div class="vl">${esc(fmtD(r.at))}</div>`);
   });
+  if (edit && hs[shown.length]) {
+    hs[shown.length].insertAdjacentHTML("beforeend",
+      `<div class="vl"><input class="vin" type="text" value="${esc(vname || (me && me.name) || "")}" placeholder="اكتب اسمك"></div><div class="vl">${esc(fmtD(new Date()))}</div>`);
+  }
   const acc = document.querySelector(".fr-acc .box");
   if (acc && sub && sub.status === "approved") acc.textContent = "✓";
 }
+// producer: tick "done" on a note
 tbody && tbody.addEventListener("change", async e => {
   const cb = e.target.closest(".donechk"); if (!cb || !openId) return;
   try { await updateDoc(doc(db, "submissions", openId, "notes", cb.dataset.nid), { done: cb.checked, doneAt: serverTimestamp() }); }
   catch (err) { cb.checked = !cb.checked; alert("معرفتش أحفظ العلامة (" + (err.code || err.message) + "). اتأكد من النت."); }
 });
+// library: toggle a category mark on a new row, remember the typed name
+tbody && tbody.addEventListener("click", e => {
+  const td = e.target.closest("td.mark"); if (!td || !libMode) return;
+  if (!td.parentElement.hasAttribute("data-ed")) return;
+  td.textContent = td.textContent.trim() === "✓" ? "" : "✓";
+});
+document.addEventListener("input", e => { if (e.target.classList && e.target.classList.contains("vin")) vname = e.target.value; });
 
 /* ---------- the bar under the toolbar ---------- */
 const bar = document.createElement("div");
 bar.id = "openbar"; bar.hidden = true;
 tb.parentNode.insertBefore(bar, tb.nextSibling);
 function paintBar() {
+  if (libMode && !openId) {
+    bar.innerHTML = '<span class="ob-t">اضغط «📋 للمشاهدة» واختار حلقة تراجعها.</span>'; bar.hidden = false; return;
+  }
   if (!openId || !sub) { bar.hidden = true; return; }
   const st = LABEL[sub.status] ? sub.status : "submitted";
-  const txt = {
-    submitted: "⏳ منتظرة مشاهدة المكتبة.",
-    changes: `المكتبة (${esc(sub.lastReviewerName || "")}) سابت ملاحظات. علّم «تم» قدام كل ملاحظة نفّذتها (المربع تحت رقم الصف)، عدّل الاستمارة لو لزم، وبعدين دوس «حفظ PDF».`,
-    fixed: "✔ بعتّ التعديلات، منتظرة مراجعة المكتبة.",
-    approved: "✅ تم الاستلام. التسليمة دي اتقفلت ومينفعش تتعدّل."
-  }[st];
-  bar.innerHTML = `<span class="st ${st}">${LABEL[st]}</span><span class="ob-t"><b dir="ltr">${esc(sub.code)}</b> — ${txt}</span><button type="button" id="obClose">إغلاق التسليمة</button>`;
+  let txt, extra = "";
+  if (libMode) {
+    txt = { submitted: "حلقة جديدة منتظرة مشاهدتك. اكتب ملاحظاتك في الجدول (الصفوف الصفراء)، أو اعتمد لو مفيش ملاحظات.",
+            changes: "المنتج لسه بينفّذ الملاحظات.",
+            fixed: "المنتج نفّذ الملاحظات. راجعها واكتب ملاحظات جديدة، أو اعتمد.",
+            approved: "✅ تم الاستلام. الحلقة اتقفلت." }[st];
+    if (canEdit()) extra = '<button type="button" id="lbAdd">+ صف</button><button type="button" class="ok" id="lbApprove">✅ تم الاستلام (لا توجد ملاحظات)</button><button type="button" class="pr" id="lbSave">💾 حفظ الملاحظات</button>';
+  } else {
+    txt = { submitted: "⏳ منتظرة مشاهدة المكتبة.",
+            changes: `المكتبة (${esc(sub.lastReviewerName || "")}) سابت ملاحظات. علّم «تم» قدام كل ملاحظة نفّذتها (المربع الأزرق على يسار كل ملاحظة)، عدّل الاستمارة لو لزم، وبعدين دوس «حفظ PDF».`,
+            fixed: "✔ بعتّ التعديلات، منتظرة مراجعة المكتبة.",
+            approved: "✅ تم الاستلام. التسليمة دي اتقفلت ومينفعش تتعدّل." }[st];
+  }
+  bar.innerHTML = `<span class="st ${st}">${LABEL[st]}</span><span class="ob-t"><b dir="ltr">${esc(sub.code)}</b> — ${txt}</span>${extra}<button type="button" id="obClose">إغلاق التسليمة</button>`;
   bar.hidden = false;
 }
-bar.addEventListener("click", e => { if (e.target.id === "obClose") closeOpen(true); });
-function closeOpen(clearForm) {
+function leaveOpen() { lsSet(LS_OPEN, ""); if (libMode) lsSet(LS_DRAFT, ""); location.reload(); }
+bar.addEventListener("click", e => {
+  const id = e.target.id;
+  if (id === "obClose") { libMode ? leaveOpen() : closeOpen(); }
+  else if (id === "lbAdd") { ensureRows(tbody.rows.length + 1); makeEditable(tbody.rows[tbody.rows.length - 1]); }
+  else if (id === "lbApprove") submitReview("approved");
+  else if (id === "lbSave") submitReview("changes");
+});
+function closeOpen() {
   if (stopSub) { stopSub(); stopSub = null; } if (stopNotes) { stopNotes(); stopNotes = null; }
-  openId = ""; sub = null; notes = []; lsSet(LS_OPEN, ""); bar.hidden = true; clearPaper();
+  openId = ""; sub = null; notes = []; lsSet(LS_OPEN, ""); clearPaper(); paintBar();
 }
 function startOpen(uid) {
   if (stopSub) { stopSub(); stopSub = null; } if (stopNotes) { stopNotes(); stopNotes = null; }
-  if (!openId || !openId.startsWith(uid + "_")) { if (openId) closeOpen(); return; }
+  if (!openId || (!libMode && !openId.startsWith(uid + "_"))) { if (openId) closeOpen(); paintBar(); return; }
   stopSub = onSnapshot(doc(db, "submissions", openId), s => {
     if (!s.exists()) { closeOpen(); return; }
     sub = { id: s.id, ...s.data() }; paintBar(); paintPaper();
@@ -1314,29 +1412,94 @@ function startOpen(uid) {
     paintPaper();
   }, () => {});
 }
-// "استمارة جديدة" starts from scratch: forget the opened delivery too
 document.getElementById("yesNew")?.addEventListener("click", () => closeOpen());
+
+/* ---------- library: save a review ---------- */
+async function submitReview(result) {
+  if (!libMode || !sub || !canEdit()) return;
+  const name = (document.querySelector(".vin")?.value || "").trim();
+  if (!name) { alert("اكتب اسمك تحت SCREENER في خانة المشاهدة."); return; }
+  let list = [];
+  if (result === "changes") {
+    list = readEd().filter(n => n.tc || n.text || n.cats.length);
+    if (!list.length) { alert("اكتب ملاحظة واحدة على الأقل في الصفوف الصفراء، أو دوس «تم الاستلام»."); return; }
+    const bad = list.findIndex(n => !n.tc || !n.text);
+    if (bad >= 0) { alert("الملاحظة رقم " + (bad + 1) + " ناقصة: لازم التايم كود والوصف."); return; }
+  } else {
+    if (readEd().some(n => n.tc || n.text || n.cats.length) && !confirm("فيه ملاحظات مكتوبة هتتمسح لو اعتمدت. تعتمد من غير ملاحظات؟")) return;
+    if (!confirm("تعتمد الحلقة دي «تم الاستلام»؟ هتتقفل ومحدش هيقدر يعدّل فيها.")) return;
+  }
+  const bs = bar.querySelectorAll("button"); bs.forEach(b => b.disabled = true);
+  const ref = doc(db, "submissions", sub.id), round = (sub.round || 0) + 1, start = sub.round || 0;
+  try {
+    await runTransaction(db, async tx => {
+      const cur = await tx.get(ref);
+      if (!cur.exists()) throw new Error("gone");
+      const c = cur.data();
+      if (c.status === "approved") throw new Error("approved");
+      if ((c.round || 0) !== start) throw new Error("moved");
+      tx.update(ref, { status: result, round, lastReviewerName: name, lastReviewedAt: serverTimestamp() });
+      tx.set(doc(collection(db, "submissions", sub.id, "notes")), { kind: "round", round, result, by: me.uid, byName: name, ts: serverTimestamp() });
+      list.forEach(n => tx.set(doc(collection(db, "submissions", sub.id, "notes")),
+        { kind: "note", round, tc: n.tc, cats: n.cats, text: n.text, done: false, by: me.uid, byName: name, ts: serverTimestamp() }));
+    });
+    toast(result === "approved" ? "✅ اتسجّل تم الاستلام" : "💾 اتحفظت الملاحظات وراحت للمنتج");
+    setTimeout(leaveOpen, 900);
+  } catch (err) {
+    bs.forEach(b => b.disabled = false);
+    alert(err.message === "approved" ? "الحلقة دي اتعمل لها تم الاستلام قبل كده."
+      : err.message === "moved" ? "مشاهد تاني راجع الحلقة دي قبلك. افتحها تاني وشوف مراجعته."
+      : err.code === "permission-denied" ? "مفيش صلاحية: اتأكد إن حسابك دوره «مشاهد (مكتبة)»."
+      : "مقدرتش أحفظ (" + (err.code || err.message) + "). اتأكد من النت.");
+  }
+}
+
+/* ---------- modes ---------- */
+function applyMode() {
+  document.body.classList.toggle("libmode", libMode);
+  document.querySelectorAll("[data-k]").forEach(el => { el.disabled = libMode; });
+  const pdf = document.getElementById("btnSavePdf"); if (pdf) pdf.style.display = libMode ? "none" : "";
+  btn.hidden = false; setBtn(0);
+}
 
 /* ---------- auth ---------- */
 onAuthStateChanged(auth, u => {
   if (stopList) { stopList(); stopList = null; }
   if (stopRole) { stopRole(); stopRole = null; }
-  rows = []; setBtn(0); ov.hidden = true;
-  btn.hidden = !u || u.email === ADMIN;          // the admin has his own dashboard
-  if (!u) { if (stopSub) { stopSub(); stopSub = null; } if (stopNotes) { stopNotes(); stopNotes = null; } bar.hidden = true; return; }   // keep the opened delivery for the next login
-  if (u.email === ADMIN) return;
-  // library accounts belong on the review screen (after they've changed the temporary password)
+  rows = []; ov.hidden = true; libMode = false; me = null; document.body.classList.remove("libmode");
+  btn.hidden = true; setBtn(0);
+  if (!u) { if (stopSub) { stopSub(); stopSub = null; } if (stopNotes) { stopNotes(); stopNotes = null; } bar.hidden = true; return; }
+  if (u.email === ADMIN) return;                  // the admin has his own dashboard
   stopRole = onSnapshot(doc(db, "allowed", u.uid), s => {
     const a = s.data() || {};
-    if (a.role === "library" && a.mustChange !== true) location.replace("review.html");
+    const lib = a.role === "library" && a.mustChange !== true;
+    const name = (a.displayName || u.email.split("@")[0]).trim();
+    me = { uid: u.uid, name };
+    if (lib === libMode && stopList) return;
+    libMode = lib; applyMode();
+    if (stopList) { stopList(); stopList = null; }
+    firstLoad = true;
+    if (libMode) {
+      // a library account starts from an empty, locked form (clear leftovers once per tab)
+      if (!openId && !sessionStorage.getItem("prgdev_libclean")) { sessionStorage.setItem("prgdev_libclean", "1"); lsSet(LS_DRAFT, ""); location.reload(); return; }
+      stopList = onSnapshot(query(collection(db, "submissions"), where("status", "in", ["submitted", "fixed", "changes", "approved"])), snap => {
+        const before = new Set(rows.filter(isWait).map(r => r.id + ":" + r.status));
+        rows = snap.docs.map(d => { const x = d.data(); return { id: d.id, ...x, date: x.ts?.toDate?.() || null, last: x.lastPrintedAt?.toDate?.() || null }; });
+        const fresh = rows.filter(r => isWait(r) && !before.has(r.id + ":" + r.status));
+        if (!firstLoad && fresh.length) toast("🔔 حلقة منتظرة المشاهدة: " + fresh.map(r => r.code).join("، "));
+        firstLoad = false;
+        setBtn(rows.filter(isWait).length); renderList();
+      }, () => {});
+    } else {
+      stopList = onSnapshot(query(collection(db, "submissions"), where("uid", "==", u.uid)), snap => {
+        rows = snap.docs.map(d => { const x = d.data(); return { id: d.id, ...x, date: x.ts && x.ts.toDate ? x.ts.toDate() : null }; })
+          .sort((a, b) => (b.date || 0) - (a.date || 0));
+        setBtn(rows.filter(r => r.status === "changes").length);   // red number = deliveries waiting for his fixes
+        renderList();
+      }, () => {});
+    }
+    startOpen(u.uid);
   }, () => {});
-  stopList = onSnapshot(query(collection(db, "submissions"), where("uid", "==", u.uid)), snap => {
-    rows = snap.docs.map(d => { const x = d.data(); return { id: d.id, ...x, date: x.ts && x.ts.toDate ? x.ts.toDate() : null }; })
-      .sort((a, b) => (b.date || 0) - (a.date || 0));
-    setBtn(rows.filter(r => r.status === "changes").length);   // red number = deliveries waiting for his fixes
-    renderList();
-  }, () => {});
-  startOpen(u.uid);
 });
 btn.addEventListener("click", () => { renderList(); ov.hidden = false; });
 document.getElementById("mineClose").addEventListener("click", () => { ov.hidden = true; });
