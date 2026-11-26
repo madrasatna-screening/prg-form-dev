@@ -82,7 +82,7 @@
   .fr-acc{display:grid;grid-template-columns:1fr 1fr;background:var(--cell);padding:1.5mm 2mm;font-size:10pt}
   .fr-acc .fa{display:inline-flex;align-items:center;gap:20mm}
   .box.big{width:9mm;height:7mm}
-  .fr-scr{display:grid;grid-template-columns:22mm 1fr 1fr 1fr;background:var(--cell);padding:1.5mm 2mm 0;min-height:22mm}
+  .fr-scr{display:grid;grid-template-columns:22mm 1fr 1fr 1fr 1fr;background:var(--cell);padding:1.5mm 2mm 0;min-height:22mm}
   .fr-scr .u{text-decoration:underline;font-weight:600;font-size:10pt}
   .fr-scr .rl{direction:rtl;text-align:right;font-size:11pt;padding-right:4mm;line-height:1.5}
   .fr-scr .rl:first-of-type{margin-top:1mm}
@@ -235,6 +235,7 @@
       <div class="h">مشاهدة أولى</div>
       <div class="h">مشاهدة ثانية</div>
       <div class="h">مشاهدة ثالثة</div>
+      <div class="h">مشاهدة رابعة</div>
     </div>
     <div class="fr-sig">
       <span>Screener</span>
@@ -764,7 +765,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, serverTimestamp, increment }
+import { getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, serverTimestamp, increment, arrayUnion }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -841,9 +842,9 @@ async function record(u, d) {
   const ref = doc(db, "submissions", u.uid + "_" + encodeURIComponent(d.code));
   const snap = await getDoc(ref);
   if (!snap.exists()) {
-    await setDoc(ref, { ...d, uid: u.uid, username, ts: serverTimestamp(), lastPrintedAt: serverTimestamp(), prints: 1, status: "submitted", round: 0 });
+    await setDoc(ref, { ...d, uid: u.uid, username, ts: serverTimestamp(), lastPrintedAt: serverTimestamp(), prints: 1, status: "submitted", round: 0, history: [{ n: 1, at: Date.now() }] });
   } else {
-    const upd = { ...d, uid: u.uid, username, lastPrintedAt: serverTimestamp(), prints: increment(1) };
+    const upd = { ...d, uid: u.uid, username, lastPrintedAt: serverTimestamp(), prints: increment(1), history: arrayUnion({ n: (snap.data().prints || 1) + 1, at: Date.now() }) };
     if ((snap.data().status || "submitted") === "changes") upd.status = "fixed";
     await updateDoc(ref, upd);
   }
@@ -854,7 +855,7 @@ async function precheck(u, d) {
   const snap = await getDoc(ref);
   if (!snap.exists()) return "";
   const st = snap.data().status || "submitted";
-  if (st === "approved") return "التسليمة دي اتعمل لها «تم الاستلام» واتقفلت، ومينفعش تتحفظ تاني.";
+  if (st === "approved") return "التسليمة دي اتعمل لها «صالحة للإذاعة» واتقفلت، ومينفعش تتحفظ تاني.";
   if (st === "changes") {
     const ns = await getDocs(collection(db, "submissions", ref.id, "notes"));
     if (ns.docs.some(x => x.data().kind === "note" && !x.data().done))
@@ -1174,6 +1175,7 @@ window.addEventListener("beforeprint", apply);
   .donechk{width:17px;height:17px;margin:0;cursor:pointer}
   #sheet.pdfmode .donewrap{display:none}
   body:not(.libmode) #sheet:not(.pdfmode) .dtag{display:none}
+  #sheet .gen{font-size:9pt;color:#555;font-weight:600}
   .dtag{font-weight:700;margin-inline-start:6px}
   .fr-acc .box.big{display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:14pt}
   .fr-scr .vl{font-size:11pt;line-height:1.5;direction:rtl}
@@ -1201,7 +1203,7 @@ window.addEventListener("beforeprint", apply);
         <span class="st submitted">تم التسليم</span>
         <span class="st changes">فيه ملاحظات</span>
         <span class="st fixed">تم التعديل</span>
-        <span class="st approved">تم الاستلام</span>
+        <span class="st approved">صالحة للإذاعة</span>
       </div>
       <div id="mineTable"></div>
     </div>
@@ -1220,7 +1222,7 @@ const ADMIN = "admin@prg.local";
 const LS_DRAFT = "prgdev_draft_v1", LS_OPEN = "prgdev_open";
 const CATS = ["Audio", "Video", "Content", "Graphic"];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const LABEL = { submitted: "تم التسليم", changes: "فيه ملاحظات", fixed: "تم التعديل", approved: "تم الاستلام" };
+const LABEL = { submitted: "تم التسليم", changes: "فيه ملاحظات", fixed: "تم التعديل", approved: "صالحة للإذاعة" };
 const fmt = d => d ? d.toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" }) : "";
 const fmtD = d => d ? d.toLocaleDateString("en-GB") : "";
 const lsGet = k => { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } };
@@ -1318,7 +1320,7 @@ function paintPaper() {
   ensureRows(Math.max(BASE, list.length + (edit ? Math.max(keep.length, 4) : 0)));
   list.forEach((n, i) => {
     const tr = tbody.rows[i];
-    tr.cells[1].textContent = n.tc || "";
+    if (n.tc) tr.cells[1].textContent = n.tc; else { tr.cells[1].innerHTML = '<span class="gen">ملاحظة عامة</span>'; }
     CATS.forEach((c, j) => { tr.cells[2 + j].textContent = (n.cats || []).includes(c) ? "✓" : ""; });
     tr.cells[6].textContent = n.text || "";
     if (n.done) { const b = document.createElement("b"); b.className = "dtag"; b.textContent = "✔ تم"; tr.cells[6].appendChild(b); }
@@ -1341,7 +1343,7 @@ function paintPaper() {
     }
   }
   const rounds = notes.filter(n => n.kind === "round").sort((a, b) => a.round - b.round);
-  const shown = edit && rounds.length >= 3 ? rounds.slice(-2) : rounds.slice(-3);
+  const shown = edit && rounds.length >= 4 ? rounds.slice(-3) : rounds.slice(-4);
   const hs = document.querySelectorAll(".fr-scr .h");
   hs.forEach((h, i) => {
     const r = shown[i]; if (!r) return;
@@ -1349,7 +1351,7 @@ function paintPaper() {
   });
   if (edit && hs[shown.length]) {
     hs[shown.length].insertAdjacentHTML("beforeend",
-      `<div class="vl"><input class="vin" type="text" value="${esc(vname || (me && me.name) || "")}" placeholder="اكتب اسمك"></div><div class="vl">${esc(fmtD(new Date()))}</div>`);
+      `<div class="vl"><input class="vin" type="text" value="${esc(vname)}" placeholder="اكتب اسمك هنا"></div><div class="vl">${esc(fmtD(new Date()))}</div>`);
   }
   document.body.classList.toggle("libedit", !!edit);
   const lr = rounds[rounds.length - 1];
@@ -1407,13 +1409,13 @@ function paintBar() {
     txt = { submitted: "حلقة جديدة منتظرة مشاهدتك. اكتب ملاحظاتك في الجدول (الصفوف الصفراء)، أو اعتمد لو مفيش ملاحظات.",
             changes: "المنتج لسه بينفّذ الملاحظات.",
             fixed: "المنتج نفّذ الملاحظات. راجعها واكتب ملاحظات جديدة، أو اعتمد.",
-            approved: "✅ تم الاستلام. الحلقة اتقفلت." }[st];
-    if (canEdit()) extra = '<button type="button" id="lbAdd">+ صف</button><button type="button" class="ok" id="lbApprove">✅ تم الاستلام (لا توجد ملاحظات)</button><button type="button" class="pr" id="lbSave">💾 حفظ الملاحظات</button>';
+            approved: "✅ صالحة للإذاعة. الحلقة اتقفلت." }[st];
+    if (canEdit()) extra = '<button type="button" id="lbAdd">+ صف</button><button type="button" class="ok" id="lbApprove">✅ صالحة للإذاعة (لا توجد ملاحظات)</button><button type="button" class="pr" id="lbSave">💾 حفظ الملاحظات</button>';
   } else {
     txt = { submitted: "⏳ منتظرة مشاهدة المكتبة.",
             changes: `المكتبة (${esc(sub.lastReviewerName || "")}) سابت ملاحظات. علّم «تم» قدام كل ملاحظة نفّذتها (المربع الأزرق على يسار كل ملاحظة)، عدّل الاستمارة لو لزم، وبعدين دوس «حفظ PDF».`,
             fixed: "✔ بعتّ التعديلات، منتظرة مراجعة المكتبة.",
-            approved: "✅ تم الاستلام. التسليمة دي اتقفلت ومينفعش تتعدّل." }[st];
+            approved: "✅ صالحة للإذاعة. التسليمة دي اتقفلت ومينفعش تتعدّل." }[st];
   }
   bar.innerHTML = `<span class="st ${st}">${LABEL[st]}</span><span class="ob-t"><b dir="ltr">${esc(sub.code)}</b> — ${txt}</span>${extra}<button type="button" id="obClose">إغلاق التسليمة</button>`;
   bar.hidden = false;
@@ -1448,16 +1450,16 @@ document.getElementById("yesNew")?.addEventListener("click", () => closeOpen());
 async function submitReview(result) {
   if (!libMode || !sub || !canEdit()) return;
   const name = (document.querySelector(".vin")?.value || "").trim();
-  if (!name) { alert("اكتب اسمك تحت SCREENER في خانة المشاهدة."); return; }
+  if (!name) { alert("اكتب اسمك تحت SCREENER في خانة المشاهدة (هو اللي هيتسجل)."); return; }
   let list = [];
   if (result === "changes") {
     list = readEd().filter(n => n.tc || n.text || n.cats.length);
-    if (!list.length) { alert("اكتب ملاحظة واحدة على الأقل في الصفوف الصفراء، أو دوس «تم الاستلام»."); return; }
-    const bad = list.findIndex(n => !n.tc || !n.text);
-    if (bad >= 0) { alert("الملاحظة رقم " + (bad + 1) + " ناقصة: لازم التايم كود والوصف."); return; }
+    if (!list.length) { alert("اكتب ملاحظة واحدة على الأقل في الصفوف الصفراء، أو دوس «صالحة للإذاعة»."); return; }
+    const bad = list.findIndex(n => !n.text);
+    if (bad >= 0) { alert("الملاحظة رقم " + (bad + 1) + " ناقصة: لازم تكتب الوصف (التايم كود اختياري للملاحظة العامة)."); return; }
   } else {
-    if (readEd().some(n => n.tc || n.text || n.cats.length) && !confirm("فيه ملاحظات مكتوبة هتتمسح لو اعتمدت. تعتمد من غير ملاحظات؟")) return;
-    if (!confirm("تعتمد الحلقة دي «تم الاستلام»؟ هتتقفل ومحدش هيقدر يعدّل فيها.")) return;
+    if (readEd().some(n => n.tc || n.text || n.cats.length) && !confirm("فيه ملاحظات مكتوبة هتتمسح لو اعتمدت. تعتمد «صالحة للإذاعة» من غير ملاحظات؟")) return;
+    if (!confirm("تعتمد الحلقة دي «صالحة للإذاعة»؟ هتتقفل ومحدش هيقدر يعدّل فيها.")) return;
   }
   const bs = bar.querySelectorAll("button"); bs.forEach(b => b.disabled = true);
   const chk = [...document.querySelectorAll("#checks [data-check]")].map(b => b.textContent.trim() === "✓");
@@ -1475,11 +1477,11 @@ async function submitReview(result) {
       list.forEach(n => tx.set(doc(collection(db, "submissions", sub.id, "notes")),
         { kind: "note", round, tc: n.tc, cats: n.cats, text: n.text, done: false, by: me.uid, byName: name, ts: serverTimestamp() }));
     });
-    toast(result === "approved" ? "✅ اتسجّل تم الاستلام" : "💾 اتحفظت الملاحظات وراحت للمنتج");
+    toast(result === "approved" ? "✅ اتسجّلت صالحة للإذاعة" : "💾 اتحفظت الملاحظات وراحت للمنتج");
     setTimeout(leaveOpen, 900);
   } catch (err) {
     bs.forEach(b => b.disabled = false);
-    alert(err.message === "approved" ? "الحلقة دي اتعمل لها تم الاستلام قبل كده."
+    alert(err.message === "approved" ? "الحلقة دي اتعمل لها «صالحة للإذاعة» قبل كده."
       : err.message === "moved" ? "مشاهد تاني راجع الحلقة دي قبلك. افتحها تاني وشوف مراجعته."
       : err.code === "permission-denied" ? "مفيش صلاحية: اتأكد إن حسابك دوره «مشاهد (مكتبة)»."
       : "مقدرتش أحفظ (" + (err.code || err.message) + "). اتأكد من النت.");
