@@ -764,7 +764,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp, increment }
+import { getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, serverTimestamp, increment }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -824,8 +824,15 @@ function collect() {
     programType: pt && pt.selectedIndex >= 0 ? pt.options[pt.selectedIndex].text : "",
     grade: val("grade"), subject: val("subject"), episode: val("episode"),
     producer: val("producer"), presenter: val("presenter"), term: val("term"),
-    receivingDate: val("recvDate"), broadcastDate: val("bcDate")
+    receivingDate: val("recvDate"), broadcastDate: val("bcDate"),
+    form: fullForm()
   };
+}
+/* the whole form, in the same shape as the local draft, so a delivery can be reopened and edited later */
+function fullForm() {
+  const f = { checks: [...document.querySelectorAll("[data-check]")].map(b => b.textContent.trim() === "✓") };
+  document.querySelectorAll("[data-k]").forEach(el => { f[el.dataset.k] = el.value; });
+  return f;
 }
 
 /* one record per person per code; printing again only bumps the counter */
@@ -836,8 +843,24 @@ async function record(u, d) {
   if (!snap.exists()) {
     await setDoc(ref, { ...d, uid: u.uid, username, ts: serverTimestamp(), lastPrintedAt: serverTimestamp(), prints: 1, status: "submitted", round: 0 });
   } else {
-    await updateDoc(ref, { ...d, uid: u.uid, username, lastPrintedAt: serverTimestamp(), prints: increment(1) });
+    const upd = { ...d, uid: u.uid, username, lastPrintedAt: serverTimestamp(), prints: increment(1) };
+    if ((snap.data().status || "submitted") === "changes") upd.status = "fixed";
+    await updateDoc(ref, upd);
   }
+}
+/* returns a message when this delivery can't be saved right now, "" when it can */
+async function precheck(u, d) {
+  const ref = doc(db, "submissions", u.uid + "_" + encodeURIComponent(d.code));
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return "";
+  const st = snap.data().status || "submitted";
+  if (st === "approved") return "التسليمة دي اتعمل لها «تم الاستلام» واتقفلت، ومينفعش تتحفظ تاني.";
+  if (st === "changes") {
+    const ns = await getDocs(collection(db, "submissions", ref.id, "notes"));
+    if (ns.docs.some(x => x.data().kind === "note" && !x.data().done))
+      return "لسه فيه ملاحظات من المكتبة ماعلّمتهاش «تم». افتح التسليمة من «📋 تسليماتي» وعلّمها الأول، وبعدين احفظ.";
+  }
+  return "";
 }
 
 /* intercept the print button: record first, then let the normal print continue */
@@ -878,6 +901,8 @@ pdfBtn?.addEventListener("click", async () => {
   const d = collect();
   if (!d.code) { alert("الكود (DESCRIPTION) فاضي. اختار البرنامج والصف والمادة واكتب رقم الحلقة الأول."); return; }
   const done = t => { pdfBtn.textContent = t; setTimeout(() => { pdfBtn.textContent = PDF_TXT; pdfBtn.disabled = false; }, 2500); };
+  let pm = ""; try { pm = await precheck(u, d); } catch (e) {}
+  if (pm) { alert(pm); return; }
   pdfBtn.disabled = true; pdfBtn.textContent = "⏳ جاري تجهيز الـ PDF…";
   let blob;
   try { blob = await makePdf(); }
@@ -1109,7 +1134,7 @@ window.addEventListener("beforeprint", apply);
 })();
 </script>
 
-<!-- ===== تسليماتي: حالة كل تسليمة بلونها + عدّاد الملاحظات ===== -->
+<!-- ===== تسليماتي + ملاحظات المكتبة داخل الورقة ===== -->
 <style>
   .mineov{position:fixed;inset:0;z-index:9500;background:rgba(20,28,38,.7);display:flex;align-items:center;justify-content:center;direction:rtl;font-family:"Segoe UI",Tahoma,Arial,sans-serif}
   .mineov[hidden]{display:none}
@@ -1122,6 +1147,7 @@ window.addEventListener("beforeprint", apply);
   .minebody th,.minebody td{border:1px solid #d0d5db;padding:7px 9px;text-align:right}
   .minebody th{background:#eef0f3}
   .minebody td.c{direction:ltr;text-align:left;white-space:nowrap}
+  .minebody td button{border:0;border-radius:6px;padding:5px 12px;background:#1f5fbf;color:#fff;cursor:pointer;font:inherit}
   .mine-empty{padding:30px;text-align:center;color:#555}
   .st{display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap}
   .st.submitted{background:#fff3cd;color:#7a5a00}
@@ -1130,7 +1156,15 @@ window.addEventListener("beforeprint", apply);
   .st.approved{background:#d4edda;color:#17602b}
   .mine-badge{display:inline-block;min-width:18px;padding:0 5px;margin-right:6px;border-radius:9px;background:#d9232e;color:#fff;font-size:12px;line-height:18px;text-align:center}
   .mine-legend{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-size:12px}
-  @media print{.mineov{display:none!important}}
+  #openbar{direction:rtl;font-family:"Segoe UI",Tahoma,Arial,sans-serif;font-size:14px;line-height:1.7;padding:9px 16px;background:#fff8e1;border-bottom:2px solid #e0b100;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  #openbar[hidden]{display:none}
+  #openbar .ob-t{flex:1;min-width:220px}
+  #openbar button{border:0;border-radius:6px;padding:5px 12px;background:#e3e6ea;cursor:pointer;font:inherit}
+  .donechk{display:block;margin:3px auto 0;width:15px;height:15px;cursor:pointer}
+  .dtag{font-weight:700;margin-inline-start:6px}
+  .fr-acc .box.big{display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:14pt}
+  .fr-scr .vl{font-size:11pt;line-height:1.5;direction:rtl}
+  @media print{.mineov,#openbar,.donechk{display:none!important}}
 </style>
 <div class="mineov" id="mineov" hidden>
   <div class="minebox">
@@ -1149,16 +1183,22 @@ window.addEventListener("beforeprint", apply);
 <script type="module">
 import { getApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { getFirestore, collection, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { getFirestore, collection, query, where, onSnapshot, doc, updateDoc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const app = getApp();
 const auth = getAuth(app), db = getFirestore(app);
 const ADMIN = "admin@prg.local";
+const LS_DRAFT = "prgdev_draft_v1", LS_OPEN = "prgdev_open";
+const CATS = ["Audio", "Video", "Content", "Graphic"];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const LABEL = { submitted: "تم التسليم", changes: "فيه ملاحظات", fixed: "تم التعديل", approved: "تم الاستلام" };
 const fmt = d => d ? d.toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" }) : "";
+const fmtD = d => d ? d.toLocaleDateString("en-GB") : "";
+const lsGet = k => { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } };
+const lsSet = (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) {} };
 
-// toolbar button
+/* ---------- toolbar button ---------- */
 const tb = document.querySelector(".toolbar");
 const btn = document.createElement("button");
 btn.className = "btn"; btn.id = "btnMine"; btn.type = "button"; btn.hidden = true;
@@ -1167,31 +1207,138 @@ const setBtn = n => { btn.innerHTML = "📋 تسليماتي" + (n ? `<span clas
 setBtn(0);
 
 const ov = document.getElementById("mineov"), tbl = document.getElementById("mineTable");
-let rows = [], stop = null;
+let rows = [], stopList = null, stopRole = null, stopSub = null, stopNotes = null;
+let openId = lsGet(LS_OPEN), sub = null, notes = [];
 
-function render() {
+function renderList() {
   if (!rows.length) { tbl.innerHTML = '<div class="mine-empty">لسه ماسلّمتش أي حلقة.</div>'; return; }
-  tbl.innerHTML = "<table><tr><th>التاريخ</th><th>الكود</th><th>القناة</th><th>الحالة</th><th>عدد مرات الحفظ</th></tr>"
+  tbl.innerHTML = "<table><tr><th>التاريخ</th><th>الكود</th><th>القناة</th><th>الحالة</th><th>المراجعات</th><th></th></tr>"
     + rows.map(r => {
       const s = LABEL[r.status] ? r.status : "submitted";
       return `<tr><td>${esc(fmt(r.date))}</td><td class="c">${esc(r.code)}</td><td>${esc(r.channel)}</td>`
-           + `<td><span class="st ${s}">${LABEL[s]}</span></td><td>${esc(r.prints || 1)}</td></tr>`;
+           + `<td><span class="st ${s}">${LABEL[s]}</span></td><td>${esc(r.round || 0)}</td>`
+           + `<td><button type="button" data-open="${esc(r.id)}">فتح</button></td></tr>`;
     }).join("") + "</table>";
 }
+tbl.addEventListener("click", e => {
+  const b = e.target.closest("[data-open]"); if (!b) return;
+  const r = rows.find(x => x.id === b.dataset.open); if (!r) return;
+  if (!r.form) { alert("التسليمة دي اتسجلت قبل نظام المراجعة ومفيهاش نسخة كاملة من الاستمارة."); return; }
+  if (!confirm("هتفتح التسليمة دي مكان الاستمارة اللي قدامك، وأي بيانات مش محفوظة هتتمسح. تكمّل؟")) return;
+  lsSet(LS_DRAFT, JSON.stringify(r.form)); lsSet(LS_OPEN, r.id);
+  location.reload();
+});
 
+/* ---------- the notes table inside the paper ---------- */
+const tbody = document.getElementById("rows");
+const BASE = tbody ? tbody.rows.length : 0;
+function ensureRows(n) {
+  while (tbody.rows.length < n) {
+    const tr = document.createElement("tr"), k = tbody.rows.length + 1;
+    tr.innerHTML = `<td class="ser">${k}</td><td></td><td class="mark"></td><td class="mark"></td><td class="mark"></td><td class="mark"></td><td class="desc"></td>`;
+    tbody.appendChild(tr);
+  }
+  while (tbody.rows.length > Math.max(n, BASE)) tbody.deleteRow(-1);
+}
+function clearPaper() {
+  if (!tbody) return;
+  ensureRows(BASE);
+  [...tbody.rows].forEach(tr => {
+    tr.cells[0].querySelector(".donechk")?.remove();
+    tr.cells[1].textContent = ""; for (let i = 2; i <= 5; i++) tr.cells[i].textContent = ""; tr.cells[6].textContent = "";
+  });
+  document.querySelectorAll(".fr-scr .h .vl").forEach(x => x.remove());
+  const acc = document.querySelector(".fr-acc .box"); if (acc) acc.textContent = "";
+}
+function paintPaper() {
+  clearPaper();
+  const list = notes.filter(n => n.kind === "note")
+    .sort((a, b) => (a.round - b.round) || ((a.at || 0) - (b.at || 0)));
+  ensureRows(Math.max(BASE, list.length));
+  list.forEach((n, i) => {
+    const tr = tbody.rows[i];
+    tr.cells[1].textContent = n.tc || "";
+    CATS.forEach((c, j) => { tr.cells[2 + j].textContent = (n.cats || []).includes(c) ? "✓" : ""; });
+    tr.cells[6].textContent = n.text || "";
+    if (n.done) { const b = document.createElement("b"); b.className = "dtag"; b.textContent = "✔ تم"; tr.cells[6].appendChild(b); }
+    const cb = document.createElement("input");
+    cb.type = "checkbox"; cb.className = "donechk"; cb.checked = !!n.done; cb.dataset.nid = n.id;
+    cb.disabled = !(sub && sub.status === "changes");
+    cb.title = "علّم «تم» بعد ما تنفّذ الملاحظة";
+    tr.cells[0].appendChild(cb);
+  });
+  const rounds = notes.filter(n => n.kind === "round").sort((a, b) => a.round - b.round).slice(-3);
+  document.querySelectorAll(".fr-scr .h").forEach((h, i) => {
+    const r = rounds[i]; if (!r) return;
+    h.insertAdjacentHTML("beforeend", `<div class="vl">${esc(r.byName)}</div><div class="vl">${esc(fmtD(r.at))}</div>`);
+  });
+  const acc = document.querySelector(".fr-acc .box");
+  if (acc && sub && sub.status === "approved") acc.textContent = "✓";
+}
+tbody && tbody.addEventListener("change", async e => {
+  const cb = e.target.closest(".donechk"); if (!cb || !openId) return;
+  try { await updateDoc(doc(db, "submissions", openId, "notes", cb.dataset.nid), { done: cb.checked, doneAt: serverTimestamp() }); }
+  catch (err) { cb.checked = !cb.checked; alert("معرفتش أحفظ العلامة (" + (err.code || err.message) + "). اتأكد من النت."); }
+});
+
+/* ---------- the bar under the toolbar ---------- */
+const bar = document.createElement("div");
+bar.id = "openbar"; bar.hidden = true;
+tb.parentNode.insertBefore(bar, tb.nextSibling);
+function paintBar() {
+  if (!openId || !sub) { bar.hidden = true; return; }
+  const st = LABEL[sub.status] ? sub.status : "submitted";
+  const txt = {
+    submitted: "⏳ منتظرة مشاهدة المكتبة.",
+    changes: `المكتبة (${esc(sub.lastReviewerName || "")}) سابت ملاحظات. علّم «تم» قدام كل ملاحظة نفّذتها (المربع تحت رقم الصف)، عدّل الاستمارة لو لزم، وبعدين دوس «حفظ PDF».`,
+    fixed: "✔ بعتّ التعديلات، منتظرة مراجعة المكتبة.",
+    approved: "✅ تم الاستلام. التسليمة دي اتقفلت ومينفعش تتعدّل."
+  }[st];
+  bar.innerHTML = `<span class="st ${st}">${LABEL[st]}</span><span class="ob-t"><b dir="ltr">${esc(sub.code)}</b> — ${txt}</span><button type="button" id="obClose">إغلاق التسليمة</button>`;
+  bar.hidden = false;
+}
+bar.addEventListener("click", e => { if (e.target.id === "obClose") closeOpen(true); });
+function closeOpen(clearForm) {
+  if (stopSub) { stopSub(); stopSub = null; } if (stopNotes) { stopNotes(); stopNotes = null; }
+  openId = ""; sub = null; notes = []; lsSet(LS_OPEN, ""); bar.hidden = true; clearPaper();
+}
+function startOpen(uid) {
+  if (stopSub) { stopSub(); stopSub = null; } if (stopNotes) { stopNotes(); stopNotes = null; }
+  if (!openId || !openId.startsWith(uid + "_")) { if (openId) closeOpen(); return; }
+  stopSub = onSnapshot(doc(db, "submissions", openId), s => {
+    if (!s.exists()) { closeOpen(); return; }
+    sub = { id: s.id, ...s.data() }; paintBar(); paintPaper();
+  }, () => closeOpen());
+  stopNotes = onSnapshot(collection(db, "submissions", openId, "notes"), snap => {
+    notes = snap.docs.map(d => ({ id: d.id, ...d.data(), at: d.data().ts?.toDate?.() || null }));
+    paintPaper();
+  }, () => {});
+}
+// "استمارة جديدة" starts from scratch: forget the opened delivery too
+document.getElementById("yesNew")?.addEventListener("click", () => closeOpen());
+
+/* ---------- auth ---------- */
 onAuthStateChanged(auth, u => {
-  if (stop) { stop(); stop = null; }
+  if (stopList) { stopList(); stopList = null; }
+  if (stopRole) { stopRole(); stopRole = null; }
   rows = []; setBtn(0); ov.hidden = true;
   btn.hidden = !u || u.email === ADMIN;          // the admin has his own dashboard
-  if (btn.hidden) return;
-  stop = onSnapshot(query(collection(db, "submissions"), where("uid", "==", u.uid)), snap => {
-    rows = snap.docs.map(d => { const x = d.data(); return { ...x, date: x.ts && x.ts.toDate ? x.ts.toDate() : null }; })
+  if (!u) { if (stopSub) { stopSub(); stopSub = null; } if (stopNotes) { stopNotes(); stopNotes = null; } bar.hidden = true; return; }   // keep the opened delivery for the next login
+  if (u.email === ADMIN) return;
+  // library accounts belong on the review screen (after they've changed the temporary password)
+  stopRole = onSnapshot(doc(db, "allowed", u.uid), s => {
+    const a = s.data() || {};
+    if (a.role === "library" && a.mustChange !== true) location.replace("review.html");
+  }, () => {});
+  stopList = onSnapshot(query(collection(db, "submissions"), where("uid", "==", u.uid)), snap => {
+    rows = snap.docs.map(d => { const x = d.data(); return { id: d.id, ...x, date: x.ts && x.ts.toDate ? x.ts.toDate() : null }; })
       .sort((a, b) => (b.date || 0) - (a.date || 0));
     setBtn(rows.filter(r => r.status === "changes").length);   // red number = deliveries waiting for his fixes
-    render();
+    renderList();
   }, () => {});
+  startOpen(u.uid);
 });
-btn.addEventListener("click", () => { render(); ov.hidden = false; });
+btn.addEventListener("click", () => { renderList(); ov.hidden = false; });
 document.getElementById("mineClose").addEventListener("click", () => { ov.hidden = true; });
 ov.addEventListener("click", e => { if (e.target === ov) ov.hidden = true; });
 </script>
