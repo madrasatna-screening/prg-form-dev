@@ -79,6 +79,7 @@
           <div><label>اسم المستخدم (إنجليزي)</label><input id="nu" dir="ltr" autocapitalize="none" placeholder="ahmed"></div>
           <div><label>الباسورد (6 حروف على الأقل)</label><input id="np" dir="ltr"></div>
           <div><label>الاسم بالعربي (بيظهر في خانة المنتج)</label><input id="nn" placeholder="أحمد ضياء"></div>
+          <div><label>الدور</label><select id="nr"><option value="producer">منتج</option><option value="library">مشاهد (مكتبة)</option></select></div>
           <button class="btn p" type="submit">إضافة</button>
         </form>
         <div class="msg" id="um"></div>
@@ -96,7 +97,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { getFirestore, collection, query, orderBy, limit, getDocs, doc, setDoc, deleteDoc, serverTimestamp }
+import { getFirestore, collection, query, orderBy, limit, getDocs, doc, setDoc, updateDoc, deleteDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -205,9 +206,14 @@ $("csv").onclick = () => {
 async function loadUsers() {
   const snap = await getDocs(collection(db, "allowed"));
   const list = snap.docs.map(d => ({ uid: d.id, ...d.data() })).sort((a, b) => String(a.username).localeCompare(b.username));
-  $("ut").innerHTML = "<tr><th>المستخدم</th><th>الاسم</th><th>غيّر الباسورد المؤقت؟</th><th></th></tr>"
-    + list.map(u => `<tr><td>${esc(u.username)}</td><td>${esc(u.displayName || "")}</td><td>${u.mustChange ? "لسه" : "أيوه"}</td><td><button class="btn d" data-stop="${esc(u.uid)}">إيقاف</button></td></tr>`).join("");
+  $("ut").innerHTML = "<tr><th>المستخدم</th><th>الاسم</th><th>الدور</th><th>غيّر الباسورد المؤقت؟</th><th></th></tr>"
+    + list.map(u => `<tr><td>${esc(u.username)}</td><td>${esc(u.displayName || "")}</td><td><select data-role="${esc(u.uid)}"><option value="producer"${u.role === "library" ? "" : " selected"}>منتج</option><option value="library"${u.role === "library" ? " selected" : ""}>مشاهد (مكتبة)</option></select></td><td>${u.mustChange ? "لسه" : "أيوه"}</td><td><button class="btn d" data-stop="${esc(u.uid)}">إيقاف</button></td></tr>`).join("");
 }
+$("ut").addEventListener("change", async e => {
+  const s = e.target.closest("select[data-role]"); if (!s) return;
+  try { await updateDoc(doc(db, "allowed", s.dataset.role), { role: s.value }); }
+  catch (err) { alert("خطأ: " + (err.code || err.message)); await loadUsers(); }
+});
 $("ut").addEventListener("click", async e => {
   const b = e.target.closest("[data-stop]"); if (!b) return;
   if (!confirm("توقف المستخدم ده؟ هيفضل حسابه موجود بس مش هيقدر يسجّل تسليمات.")) return;
@@ -228,10 +234,10 @@ $("uf").addEventListener("submit", async e => {
       if (err.code !== "auth/email-already-in-use") throw err;
       uid = (await signInWithEmailAndPassword(secAuth, email, pw)).user.uid; again = true;   // existing user: re-activate
     }
-    await setDoc(doc(db, "allowed", uid), { username: name, displayName: $("nn").value.trim(), createdAt: serverTimestamp(), mustChange: true });
+    await setDoc(doc(db, "allowed", uid), { username: name, displayName: $("nn").value.trim(), role: $("nr").value, createdAt: serverTimestamp(), mustChange: true });
     await signOut(secAuth);
     umsg(again ? "المستخدم اتفعّل تاني" : "المستخدم اتضاف", true);
-    $("nu").value = ""; $("np").value = ""; $("nn").value = "";
+    $("nu").value = ""; $("np").value = ""; $("nn").value = ""; $("nr").value = "producer";
     loadUsers();
   } catch (err) {
     umsg(err.code === "auth/invalid-credential" || err.code === "auth/wrong-password"
