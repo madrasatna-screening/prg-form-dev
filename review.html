@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🧪 تجريبي – شاشة المكتبة</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",Tahoma,Arial,sans-serif;background:#eef0f3;color:#111}
+  .devbar{background:#b45309;color:#fff;text-align:center;font-weight:600;font-size:13px;padding:5px}
+  header{background:#1d2733;color:#fff;padding:10px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  header h1{font-size:17px;margin:0 0 0 auto}
+  .btn{border:0;border-radius:6px;padding:8px 14px;font:inherit;font-size:14px;cursor:pointer;background:#3a4756;color:#fff;text-decoration:none;display:inline-block}
+  .btn.p{background:#1f5fbf} .btn.ok{background:#1d7a3a} .btn.d{background:#a33} .btn.s{background:#cfd5dc;color:#111}
+  .btn:disabled{opacity:.55;cursor:default}
+  main{max-width:1100px;margin:16px auto;padding:0 12px}
+  .card{background:#fff;border-radius:10px;padding:14px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+  .tabs{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+  .tabs .btn{background:#cfd5dc;color:#111}
+  .tabs .btn.on{background:#1f5fbf;color:#fff}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{border:1px solid #d0d5db;padding:7px 9px;text-align:right}
+  th{background:#dfe3e8}
+  td.c{direction:ltr;text-align:left;white-space:nowrap}
+  .scroll{overflow-x:auto}
+  .st{display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap}
+  .st.submitted{background:#fff3cd;color:#7a5a00}
+  .st.changes{background:#f8d7da;color:#8a1c28}
+  .st.fixed{background:#d6e6fb;color:#16487f}
+  .st.approved{background:#d4edda;color:#17602b}
+  .empty{padding:30px;text-align:center;color:#555}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px 16px}
+  .grid div{font-size:13px}
+  .grid b{display:block;font-size:12px;color:#555;font-weight:600}
+  h2{margin:0 0 10px;font-size:16px}
+  h3{margin:12px 0 6px;font-size:14px}
+  .round{border:1px solid #d0d5db;border-radius:8px;margin-bottom:10px;overflow:hidden}
+  .round .rh{background:#eef0f3;padding:7px 10px;font-size:13px;font-weight:600;display:flex;gap:10px;flex-wrap:wrap}
+  .round table{font-size:13px} .round td.n{text-align:center;width:36px}
+  .ntable input[type=text],.ntable textarea{width:100%;padding:6px;border:1px solid #9aa4b0;border-radius:6px;font:inherit;font-size:13px}
+  .ntable textarea{min-height:46px;resize:vertical}
+  .ntable td.ck{text-align:center;width:62px}
+  .ntable td.tc{width:120px}
+  .ntable th.v{font-size:12px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center}
+  .msg{font-size:13px;min-height:18px;margin-top:8px}
+  .err{color:#b00020} .good{color:#116611}
+  #login{max-width:340px;margin:10vh auto;background:#fff;padding:22px;border-radius:12px}
+  #login input{width:100%;margin-bottom:10px;padding:8px;border:1px solid #9aa4b0;border-radius:6px;font:inherit}
+  .note{font-size:12px;color:#555}
+  .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#1d2733;color:#fff;padding:10px 18px;border-radius:8px;z-index:50}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="devbar">🧪 نسخة تجريبية — للتطوير فقط</div>
+
+<div id="login">
+  <h2 style="text-align:center">دخول المكتبة</h2>
+  <form id="lf">
+    <input id="lu" placeholder="اسم المستخدم" dir="ltr" autocapitalize="none">
+    <input id="lp" type="password" placeholder="الباسورد" dir="ltr">
+    <div class="msg err" id="lm"></div>
+    <button class="btn p" style="width:100%" type="submit">دخول</button>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <h1>شاشة المكتبة – مراجعة الحلقات</h1>
+    <span id="who"></span>
+    <button class="btn" id="out" type="button">تسجيل خروج</button>
+  </header>
+  <main>
+    <div id="listView">
+      <div class="tabs">
+        <button class="btn on" data-tab="wait" type="button">منتظرة المشاهدة <span id="cw"></span></button>
+        <button class="btn" data-tab="done" type="button">اتراجعت</button>
+      </div>
+      <div class="card"><div class="scroll" id="listBox"></div></div>
+    </div>
+
+    <div id="detailView" hidden>
+      <div class="row" style="margin:0 0 10px"><button class="btn s" id="back" type="button">← رجوع للقايمة</button></div>
+      <div class="card">
+        <h2 id="dTitle"></h2>
+        <div class="grid" id="dInfo"></div>
+      </div>
+      <div class="card" id="prevBox" hidden>
+        <h2>المراجعات السابقة</h2>
+        <div id="prev"></div>
+      </div>
+      <div class="card" id="editBox">
+        <h2>مراجعتك (<span id="rNo"></span>)</h2>
+        <p class="note">اتفرج على الحلقة من الهارد، واكتب كل ملاحظة في صف: التايم كود، والفئة، والوصف. لو مفيش ملاحظات دوس «لا توجد ملاحظات».</p>
+        <div class="scroll">
+          <table class="ntable" id="nt">
+            <thead><tr><th>#</th><th>TC In</th><th class="v">Audio</th><th class="v">Video</th><th class="v">Content</th><th class="v">Graphic</th><th>Description</th></tr></thead>
+            <tbody id="nrows"></tbody>
+          </table>
+        </div>
+        <div class="row">
+          <button class="btn s" id="addRow" type="button">+ صف</button>
+          <span style="flex:1"></span>
+          <button class="btn ok" id="approve" type="button">✅ لا توجد ملاحظات (اعتماد)</button>
+          <button class="btn p" id="saveNotes" type="button">💾 حفظ الملاحظات</button>
+        </div>
+        <div class="msg" id="dMsg"></div>
+      </div>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { getFirestore, collection, query, where, onSnapshot, doc, getDoc, runTransaction, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBR-MeJoQ1MAIATbB9rW5ut14VXjixpM_c",
+  authDomain: "prg-screening.firebaseapp.com",
+  projectId: "prg-screening",
+  storageBucket: "prg-screening.firebasestorage.app",
+  messagingSenderId: "927135609781",
+  appId: "1:927135609781:web:c35a1027e813c8734f5ffc"
+};
+const ADMIN = "admin@prg.local";
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app), db = getFirestore(app);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const LABEL = { submitted: "منتظرة المشاهدة", changes: "فيه ملاحظات", fixed: "اتعدّلت – منتظرة مراجعة", approved: "تم الاستلام" };
+const CATS = ["Audio", "Video", "Content", "Graphic"];
+const fmt = d => d ? d.toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" }) : "";
+const toast = t => { const el = $("toast"); el.textContent = t; el.hidden = false; setTimeout(() => el.hidden = true, 3500); };
+
+let me = null;            // { uid, name, canReview }
+let subs = [], tab = "wait", openId = "", stopSubs = null, stopNotes = null, notes = [];
+let firstLoad = true;
+
+/* ---------- login ---------- */
+$("lf").addEventListener("submit", async e => {
+  e.preventDefault(); $("lm").textContent = "";
+  const name = $("lu").value.trim().toLowerCase().split("@")[0];
+  try { await signInWithEmailAndPassword(auth, name + "@prg.local", $("lp").value); $("lp").value = ""; }
+  catch (err) { $("lm").textContent = err.code === "auth/network-request-failed" ? "مفيش اتصال بالنت" : "اسم المستخدم أو الباسورد غلط"; }
+});
+$("out").onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, async u => {
+  if (stopSubs) { stopSubs(); stopSubs = null; }
+  closeDetail();
+  if (!u) { me = null; $("app").hidden = true; $("login").hidden = false; return; }
+  let name = u.email.split("@")[0], canReview = false;
+  if (u.email !== ADMIN) {
+    let a = null;
+    try { const s = await getDoc(doc(db, "allowed", u.uid)); a = s.exists() ? s.data() : null; } catch (e) {}
+    if (!a || a.role !== "library") {
+      $("lm").textContent = "الحساب ده مش حساب مكتبة. الاستمارة هنا: index.html";
+      await signOut(auth); return;
+    }
+    if (a.mustChange === true) {
+      $("lm").textContent = "لازم تغيّر الباسورد المؤقت الأول: افتح index.html وغيّره.";
+      await signOut(auth); return;
+    }
+    name = (a.displayName || name).trim(); canReview = true;
+  } else name = "الأدمن (عرض فقط)";
+  me = { uid: u.uid, name, canReview };
+  $("who").textContent = "👤 " + name;
+  $("login").hidden = true; $("app").hidden = false;
+  firstLoad = true;
+  stopSubs = onSnapshot(query(collection(db, "submissions"), where("status", "in", ["submitted", "fixed", "changes", "approved"])), snap => {
+    const old = new Set(subs.filter(s => s.status === "submitted" || s.status === "fixed").map(s => s.id + ":" + s.status));
+    subs = snap.docs.map(d => { const x = d.data(); return { id: d.id, ...x, date: x.ts?.toDate?.() || null, last: x.lastPrintedAt?.toDate?.() || null }; });
+    if (!firstLoad) {
+      const fresh = subs.filter(s => (s.status === "submitted" || s.status === "fixed") && !old.has(s.id + ":" + s.status));
+      if (fresh.length) toast("🔔 حلقة جديدة منتظرة المشاهدة: " + fresh.map(s => s.code).join("، "));
+    }
+    firstLoad = false;
+    renderList();
+    if (openId) paintDetail();
+  }, err => { $("listBox").innerHTML = '<div class="empty err">مقدرتش أحمّل التسليمات: ' + esc(err.code || err.message) + "</div>"; });
+});
+
+/* ---------- list ---------- */
+document.querySelectorAll("[data-tab]").forEach(b => b.addEventListener("click", () => {
+  tab = b.dataset.tab;
+  document.querySelectorAll("[data-tab]").forEach(x => x.classList.toggle("on", x === b));
+  renderList();
+}));
+const isWait = s => s.status === "submitted" || s.status === "fixed";
+function renderList() {
+  const waiting = subs.filter(isWait).length;
+  $("cw").textContent = waiting ? "(" + waiting + ")" : "";
+  document.title = (waiting ? "(" + waiting + ") " : "") + "🧪 شاشة المكتبة";
+  const rows = subs.filter(s => tab === "wait" ? isWait(s) : !isWait(s))
+    .sort((a, b) => tab === "wait" ? (a.last || a.date || 0) - (b.last || b.date || 0) : (b.last || b.date || 0) - (a.last || a.date || 0));
+  if (!rows.length) { $("listBox").innerHTML = '<div class="empty">' + (tab === "wait" ? "مفيش حلقات منتظرة المشاهدة دلوقتي." : "لسه مفيش حلقات اتراجعت.") + "</div>"; return; }
+  $("listBox").innerHTML = "<table><tr><th>آخر حفظ</th><th>الكود</th><th>المنتج</th><th>المقدم</th><th>المراجعات</th><th>الحالة</th><th></th></tr>"
+    + rows.map(r => `<tr><td>${esc(fmt(r.last || r.date))}</td><td class="c">${esc(r.code)}</td><td>${esc(r.producer)}</td><td>${esc(r.presenter)}</td>`
+      + `<td>${esc(r.round || 0)}</td><td><span class="st ${esc(r.status)}">${esc(LABEL[r.status] || r.status)}</span></td>`
+      + `<td><button class="btn p" data-open="${esc(r.id)}" type="button">${isWait(r) && me?.canReview ? "مشاهدة" : "فتح"}</button></td></tr>`).join("") + "</table>";
+}
+$("listBox").addEventListener("click", e => { const b = e.target.closest("[data-open]"); if (b) openDetail(b.dataset.open); });
+
+/* ---------- detail ---------- */
+function openDetail(id) {
+  openId = id; notes = [];
+  if (stopNotes) stopNotes();
+  stopNotes = onSnapshot(collection(db, "submissions", id, "notes"), snap => {
+    notes = snap.docs.map(d => ({ id: d.id, ...d.data(), at: d.data().ts?.toDate?.() || null }));
+    paintDetail();
+  }, () => {});
+  $("listView").hidden = true; $("detailView").hidden = false;
+  $("dMsg").textContent = ""; $("dMsg").className = "msg";
+  buildRows(5); paintDetail();
+}
+function closeDetail() {
+  if (stopNotes) { stopNotes(); stopNotes = null; }
+  openId = ""; $("detailView").hidden = true; $("listView").hidden = false;
+}
+$("back").onclick = closeDetail;
+
+function paintDetail() {
+  const s = subs.find(x => x.id === openId); if (!s) return;
+  $("dTitle").innerHTML = `<span dir="ltr">${esc(s.code)}</span> <span class="st ${esc(s.status)}">${esc(LABEL[s.status] || s.status)}</span>`;
+  const f = s.form || {};
+  const info = [["القناة", s.channel], ["البرنامج", s.programType], ["الصف", s.grade], ["المادة", s.subject], ["رقم الحلقة", s.episode], ["التيرم", s.term],
+    ["المنتج", s.producer], ["المقدم", s.presenter], ["تاريخ الاستلام", s.receivingDate], ["تاريخ الإذاعة", s.broadcastDate],
+    ["مدة الجزء الأول", f.dur1], ["مدة الجزء الثاني", f.dur2]];
+  $("dInfo").innerHTML = info.filter(x => x[1]).map(x => `<div><b>${esc(x[0])}</b>${esc(x[1])}</div>`).join("");
+
+  const rounds = notes.filter(n => n.kind === "round").sort((a, b) => a.round - b.round);
+  const prevBox = $("prevBox");
+  prevBox.hidden = !rounds.length;
+  $("prev").innerHTML = rounds.map(r => {
+    const list = notes.filter(n => n.kind === "note" && n.round === r.round).sort((a, b) => (a.at || 0) - (b.at || 0));
+    return `<div class="round"><div class="rh"><span>مراجعة ${esc(r.round)}</span><span>المشاهد: ${esc(r.byName)}</span><span>${esc(fmt(r.at))}</span>`
+      + `<span class="st ${r.result === "approved" ? "approved" : "changes"}">${r.result === "approved" ? "تم الاستلام" : "فيه ملاحظات"}</span></div>`
+      + (list.length ? `<table><tr><th>#</th><th>TC In</th><th>الفئة</th><th>الوصف</th><th>تنفيذ المنتج</th></tr>`
+        + list.map((n, i) => `<tr><td class="n">${i + 1}</td><td class="c">${esc(n.tc)}</td><td>${esc((n.cats || []).join("، "))}</td><td>${esc(n.text)}</td>`
+          + `<td>${n.done ? "✔ تم" : "⏳ لسه"}</td></tr>`).join("") + "</table>" : "") + "</div>";
+  }).join("");
+
+  const canEdit = me?.canReview && s.status !== "approved";
+  $("editBox").hidden = !canEdit;
+  $("rNo").textContent = "مراجعة " + ((s.round || 0) + 1);
+}
+
+/* ---------- notes editor ---------- */
+function rowHtml(i) {
+  return `<tr><td class="n">${i}</td><td class="tc"><input type="text" dir="ltr" placeholder="03:25" data-f="tc"></td>`
+    + CATS.map(c => `<td class="ck"><input type="checkbox" data-c="${c}"></td>`).join("")
+    + `<td><textarea data-f="text" placeholder="الملاحظة"></textarea></td></tr>`;
+}
+function buildRows(n) { $("nrows").innerHTML = ""; for (let i = 1; i <= n; i++) $("nrows").insertAdjacentHTML("beforeend", rowHtml(i)); }
+$("addRow").onclick = () => $("nrows").insertAdjacentHTML("beforeend", rowHtml($("nrows").rows.length + 1));
+const msg = (t, ok) => { $("dMsg").textContent = t; $("dMsg").className = "msg " + (ok ? "good" : "err"); };
+
+function readRows() {
+  const out = [];
+  for (const tr of $("nrows").rows) {
+    const tc = tr.querySelector('[data-f="tc"]').value.trim(), text = tr.querySelector('[data-f="text"]').value.trim();
+    const cats = CATS.filter(c => tr.querySelector(`[data-c="${c}"]`).checked);
+    if (!tc && !text && !cats.length) continue;
+    out.push({ tc, text, cats });
+  }
+  return out;
+}
+
+async function submitReview(result) {
+  const s = subs.find(x => x.id === openId); if (!s || !me?.canReview) return;
+  let list = [];
+  if (result === "changes") {
+    list = readRows();
+    if (!list.length) return msg("اكتب ملاحظة واحدة على الأقل، أو دوس «لا توجد ملاحظات».", false);
+    const bad = list.findIndex(n => !n.tc || !n.text);
+    if (bad >= 0) return msg("الملاحظة رقم " + (bad + 1) + " ناقصة: لازم التايم كود والوصف.", false);
+  } else if (readRows().length && !confirm("فيه ملاحظات مكتوبة هتتمسح لو اعتمدت. تعتمد من غير ملاحظات؟")) return;
+  else if (!confirm("تعتمد الحلقة دي «تم الاستلام»؟ هتتقفل ومحدش هيقدر يعدّل فيها.")) return;
+
+  $("approve").disabled = $("saveNotes").disabled = true; msg("جاري الحفظ…", true);
+  const ref = doc(db, "submissions", s.id), round = (s.round || 0) + 1;
+  try {
+    await runTransaction(db, async tx => {
+      const cur = await tx.get(ref);
+      if (!cur.exists()) throw new Error("gone");
+      const c = cur.data();
+      if (c.status === "approved") throw new Error("approved");
+      if ((c.round || 0) !== (s.round || 0)) throw new Error("moved");
+      tx.update(ref, { status: result, round, lastReviewerName: me.name, lastReviewedAt: serverTimestamp() });
+      tx.set(doc(collection(db, "submissions", s.id, "notes")), { kind: "round", round, result, by: me.uid, byName: me.name, ts: serverTimestamp() });
+      list.forEach(n => tx.set(doc(collection(db, "submissions", s.id, "notes")),
+        { kind: "note", round, tc: n.tc, cats: n.cats, text: n.text, done: false, by: me.uid, byName: me.name, ts: serverTimestamp() }));
+    });
+    toast(result === "approved" ? "✅ اتسجّل تم الاستلام" : "💾 اتحفظت الملاحظات وراحت للمنتج");
+    closeDetail();
+  } catch (err) {
+    msg(err.message === "approved" ? "الحلقة دي اتعمل لها تم الاستلام قبل كده."
+      : err.message === "moved" ? "مشاهد تاني راجع الحلقة دي قبلك. افتحها تاني وشوف مراجعته."
+      : err.code === "permission-denied" ? "مفيش صلاحية: اتأكد إن حسابك دوره «مشاهد (مكتبة)»."
+      : "مقدرتش أحفظ (" + (err.code || err.message) + "). اتأكد من النت.", false);
+  } finally { $("approve").disabled = $("saveNotes").disabled = false; }
+}
+$("approve").onclick = () => submitReview("approved");
+$("saveNotes").onclick = () => submitReview("changes");
+</script>
+</body>
+</html>
