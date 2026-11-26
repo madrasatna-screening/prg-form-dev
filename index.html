@@ -923,7 +923,7 @@ subBtn?.addEventListener("click", async () => {
   if (pm) { alert(pm); return; }
   if (!confirm("تسلّم الحلقة دي للمكتبة؟\n" + d.code)) return;
   subBtn.disabled = true; subBtn.textContent = "⏳ جاري التسليم…";
-  try { await record(u, d); done("✓ اتسلّمت للمكتبة"); }
+  try { await record(u, d); done("✓ اتسلّمت للمكتبة"); setTimeout(() => document.getElementById("yesNew")?.click(), 400); }
   catch (err) {
     alert(err.code === "permission-denied"
       ? "التسليم متسجلش: حسابك مش مفعّل أو موقوف. كلّم الأدمن."
