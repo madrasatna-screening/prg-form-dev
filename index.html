@@ -1279,8 +1279,8 @@ document.getElementById("mineTabs").addEventListener("click", e => {
 tbl.addEventListener("click", e => {
   const b = e.target.closest("[data-open]"); if (!b) return;
   const r = rows.find(x => x.id === b.dataset.open); if (!r) return;
-  if (!r.form) { alert("التسليمة دي اتسجلت قبل نظام المراجعة ومفيهاش نسخة كاملة من الاستمارة."); return; }
-  if (!libMode && !confirm("هتفتح التسليمة دي مكان الاستمارة اللي قدامك، وأي بيانات مش محفوظة هتتمسح. تكمّل؟")) return;
+  if (!r.form) { alert("الحلقة دي اتسجلت قبل نظام المراجعة ومفيهاش نسخة كاملة من الاستمارة."); return; }
+  if (!libMode && !confirm("هتفتح الحلقة دي مكان الاستمارة اللي قدامك، وأي بيانات مش محفوظة هتتمسح. تكمّل؟")) return;
   lsSet(LS_DRAFT, JSON.stringify(r.form)); lsSet(LS_OPEN, r.id);
   location.reload();
 });
@@ -1426,7 +1426,7 @@ function paintBar() {
     txt = { submitted: "⏳ منتظرة مشاهدة المكتبة.",
             changes: `المكتبة (${esc(sub.lastReviewerName || "")}) سابت ملاحظات. علّم «تم» قدام كل ملاحظة نفّذتها (المربع الأزرق على يسار كل ملاحظة)، عدّل الاستمارة لو لزم، وبعدين دوس «📤 تسليم للمكتبة».`,
             fixed: "✔ بعتّ التعديلات، منتظرة مراجعة المكتبة.",
-            approved: "✅ صالحة للإذاعة. التسليمة دي اتقفلت ومينفعش تتعدّل." }[st];
+            approved: "✅ صالحة للإذاعة. الحلقة دي اتقفلت ومينفعش تتعدّل." }[st];
   }
   bar.innerHTML = `<span class="st ${st}">${LABEL[st]}</span><span class="ob-t"><b dir="ltr">${esc(sub.code)}</b> — ${txt}</span>${extra}<button type="button" id="obClose">إغلاق الاستمارة</button>`;
   bar.hidden = false;
