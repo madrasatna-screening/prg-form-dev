@@ -1179,7 +1179,11 @@ window.addEventListener("beforeprint", apply);
   .fr-scr .vl{font-size:11pt;line-height:1.5;direction:rtl}
   .fr-scr .vin{width:92%;border:0;border-bottom:1px dashed #666;background:#fffbe6;font:inherit;font-size:11pt;text-align:center;direction:rtl}
   /* library mode: everything above the notes table is read-only */
-  body.libmode #sheet .grid,body.libmode #sheet .dur,body.libmode #sheet .checks{pointer-events:none}
+  body.libmode #sheet .grid,body.libmode #sheet .dur{pointer-events:none}
+  body.libedit #checks .ck,body.libedit .fr-acc .box.big{cursor:pointer}
+  body.libedit #checks .lbl{pointer-events:none}
+  #sheet td.desc{text-align:right;direction:rtl}
+  #sheet td .tcin{width:100%;box-sizing:border-box;border:0;background:transparent;font:inherit;text-align:center;direction:ltr;font-variant-numeric:tabular-nums;outline:0}
   body.libmode #btnSavePdf,body.libmode #btnNew,body.libmode #btnMine{display:none!important}
   #sheet tr[data-ed] td[contenteditable="true"]{background:#fffbe6;outline:1px dashed #e0b100;outline-offset:-2px;cursor:text}
   #sheet tr[data-ed] td.mark{background:#fffbe6;cursor:pointer}
@@ -1282,25 +1286,27 @@ function ensureRows(n) {
 function readEd() {
   const out = [];
   [...tbody.rows].filter(tr => tr.hasAttribute("data-ed")).forEach(tr => {
-    out.push({ tc: tr.cells[1].textContent.trim(), text: tr.cells[6].textContent.trim(),
+    const ti = tr.cells[1].querySelector("input");
+    out.push({ tc: (ti ? ti.value : tr.cells[1].textContent).trim(), text: tr.cells[6].textContent.trim(),
                cats: CATS.filter((c, j) => tr.cells[2 + j].textContent.trim() === "✓") });
   });
   return out;
 }
 function makeEditable(tr) {
   tr.setAttribute("data-ed", "1");
-  tr.cells[1].contentEditable = "true"; tr.cells[6].contentEditable = "true";
+  tr.cells[1].innerHTML = '<input class="tcin" data-mask="mmss" placeholder="mm:ss" maxlength="6" inputmode="numeric">';
+  tr.cells[6].contentEditable = "true";
 }
 function clearPaper() {
   if (!tbody) return;
   ensureRows(BASE);
   [...tbody.rows].forEach(tr => {
     tr.cells[6].querySelector(".donewrap")?.remove(); tr.cells[6].classList.remove("has-done");
-    tr.removeAttribute("data-ed"); tr.cells[1].contentEditable = "false"; tr.cells[6].contentEditable = "false";
+    tr.removeAttribute("data-ed"); tr.cells[6].contentEditable = "false";
     tr.cells[1].textContent = ""; for (let i = 2; i <= 5; i++) tr.cells[i].textContent = ""; tr.cells[6].textContent = "";
   });
   document.querySelectorAll(".fr-scr .h .vl").forEach(x => x.remove());
-  const acc = document.querySelector(".fr-acc .box"); if (acc) acc.textContent = "";
+  document.querySelectorAll(".fr-acc .box").forEach(x => x.textContent = "");
 }
 const canEdit = () => libMode && sub && sub.status !== "approved";
 function paintPaper() {
@@ -1331,7 +1337,7 @@ function paintPaper() {
     for (let i = list.length; i < tbody.rows.length; i++) {
       const tr = tbody.rows[i]; makeEditable(tr);
       const k = keep[i - list.length];
-      if (k) { tr.cells[1].textContent = k.tc; tr.cells[6].textContent = k.text; CATS.forEach((c, j) => { tr.cells[2 + j].textContent = k.cats.includes(c) ? "✓" : ""; }); }
+      if (k) { tr.cells[1].querySelector("input").value = k.tc; tr.cells[6].textContent = k.text; CATS.forEach((c, j) => { tr.cells[2 + j].textContent = k.cats.includes(c) ? "✓" : ""; }); }
     }
   }
   const rounds = notes.filter(n => n.kind === "round").sort((a, b) => a.round - b.round);
@@ -1345,9 +1351,33 @@ function paintPaper() {
     hs[shown.length].insertAdjacentHTML("beforeend",
       `<div class="vl"><input class="vin" type="text" value="${esc(vname || (me && me.name) || "")}" placeholder="اكتب اسمك"></div><div class="vl">${esc(fmtD(new Date()))}</div>`);
   }
-  const acc = document.querySelector(".fr-acc .box");
-  if (acc && sub && sub.status === "approved") acc.textContent = "✓";
+  document.body.classList.toggle("libedit", !!edit);
+  const lr = rounds[rounds.length - 1];
+  if (lr && Array.isArray(lr.checks) && !(edit && chkInit)) {
+    document.querySelectorAll("#checks [data-check]").forEach(b => { b.textContent = lr.checks[+b.dataset.check] ? "✓" : ""; });
+  }
+  if (edit) chkInit = true;
+  const boxes = document.querySelectorAll(".fr-acc .box.big");
+  const mk = edit ? vmark : (lr ? (lr.mark || (lr.result === "approved" ? "acc" : "rej")) : (sub && sub.status === "approved" ? "acc" : ""));
+  if (boxes[0]) boxes[0].textContent = mk === "acc" ? "✓" : "";
+  if (boxes[1]) boxes[1].textContent = mk === "rej" ? "✓" : "";
 }
+let chkInit = false, vmark = "";
+// library: own handling of the title check boxes and the Accepted / Rejected boxes
+const checksEl = document.getElementById("checks");
+checksEl && checksEl.addEventListener("click", e => {
+  if (!libMode) return;
+  e.stopPropagation(); e.preventDefault();
+  if (!canEdit()) return;
+  const ck = e.target.closest(".ck"); if (!ck) return;
+  const bx = ck.querySelector("[data-check]"); bx.textContent = bx.textContent.trim() ? "" : "✓";
+}, true);
+document.addEventListener("click", e => {
+  const bx = e.target.closest && e.target.closest(".fr-acc .box.big"); if (!bx || !libMode || !canEdit()) return;
+  const i = [...document.querySelectorAll(".fr-acc .box.big")].indexOf(bx), want = i === 0 ? "acc" : "rej";
+  vmark = vmark === want ? "" : want;
+  document.querySelectorAll(".fr-acc .box.big").forEach((b, j) => { b.textContent = (j === 0 && vmark === "acc") || (j === 1 && vmark === "rej") ? "✓" : ""; });
+});
 // producer: tick "done" on a note
 tbody && tbody.addEventListener("change", async e => {
   const cb = e.target.closest(".donechk"); if (!cb || !openId) return;
@@ -1398,7 +1428,7 @@ bar.addEventListener("click", e => {
 });
 function closeOpen() {
   if (stopSub) { stopSub(); stopSub = null; } if (stopNotes) { stopNotes(); stopNotes = null; }
-  openId = ""; sub = null; notes = []; lsSet(LS_OPEN, ""); clearPaper(); paintBar();
+  openId = ""; sub = null; notes = []; chkInit = false; vmark = ""; lsSet(LS_OPEN, ""); clearPaper(); paintBar();
 }
 function startOpen(uid) {
   if (stopSub) { stopSub(); stopSub = null; } if (stopNotes) { stopNotes(); stopNotes = null; }
@@ -1430,6 +1460,8 @@ async function submitReview(result) {
     if (!confirm("تعتمد الحلقة دي «تم الاستلام»؟ هتتقفل ومحدش هيقدر يعدّل فيها.")) return;
   }
   const bs = bar.querySelectorAll("button"); bs.forEach(b => b.disabled = true);
+  const chk = [...document.querySelectorAll("#checks [data-check]")].map(b => b.textContent.trim() === "✓");
+  const mark = result === "approved" ? "acc" : "rej";
   const ref = doc(db, "submissions", sub.id), round = (sub.round || 0) + 1, start = sub.round || 0;
   try {
     await runTransaction(db, async tx => {
@@ -1439,7 +1471,7 @@ async function submitReview(result) {
       if (c.status === "approved") throw new Error("approved");
       if ((c.round || 0) !== start) throw new Error("moved");
       tx.update(ref, { status: result, round, lastReviewerName: name, lastReviewedAt: serverTimestamp() });
-      tx.set(doc(collection(db, "submissions", sub.id, "notes")), { kind: "round", round, result, by: me.uid, byName: name, ts: serverTimestamp() });
+      tx.set(doc(collection(db, "submissions", sub.id, "notes")), { kind: "round", round, result, checks: chk, mark, by: me.uid, byName: name, ts: serverTimestamp() });
       list.forEach(n => tx.set(doc(collection(db, "submissions", sub.id, "notes")),
         { kind: "note", round, tc: n.tc, cats: n.cats, text: n.text, done: false, by: me.uid, byName: name, ts: serverTimestamp() }));
     });
