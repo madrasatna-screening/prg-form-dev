@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🧪 تجريبي – لوحة الأدمن</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",Tahoma,Arial,sans-serif;background:#eef0f3;color:#111}
+  header{background:#1d2733;color:#fff;padding:10px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  header h1{font-size:17px;margin:0 0 0 auto}
+  .btn{border:0;border-radius:6px;padding:8px 14px;font:inherit;font-size:14px;cursor:pointer;background:#3a4756;color:#fff;text-decoration:none;display:inline-block}
+  .btn.p{background:#1f5fbf} .btn.d{background:#a33}
+  main{max-width:1250px;margin:16px auto;padding:0 12px}
+  .card{background:#fff;border-radius:10px;padding:14px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+  label{font-size:13px;font-weight:600;display:block;margin-bottom:3px}
+  input,select{padding:8px;border:1px solid #9aa4b0;border-radius:6px;font:inherit;font-size:14px;min-width:150px}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{border:1px solid #d0d5db;padding:6px 8px;text-align:right;white-space:nowrap}
+  th{background:#dfe3e8}
+  .scroll{overflow-x:auto}
+  .tabs{display:flex;gap:8px;margin-bottom:12px}
+  .tabs .btn{background:#cfd5dc;color:#111} .tabs .btn.on{background:#1f5fbf;color:#fff}
+  .msg{font-size:13px;min-height:18px;margin-top:6px}
+  .err{color:#b00020} .ok{color:#116611}
+  #login{max-width:340px;margin:12vh auto;background:#fff;padding:22px;border-radius:12px}
+  #login input{width:100%;margin-bottom:10px}
+  .sum a{color:#1f5fbf;cursor:pointer;text-decoration:underline}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <h2 style="margin-top:0;text-align:center">دخول الأدمن</h2>
+  <form id="lf">
+    <input id="lu" placeholder="اسم المستخدم" dir="ltr" value="admin" autocapitalize="none">
+    <input id="lp" type="password" placeholder="الباسورد" dir="ltr">
+    <div class="msg err" id="lm"></div>
+    <button class="btn p" style="width:100%" type="submit">دخول</button>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <h1>لوحة الأدمن – تسليمات الحلقات</h1>
+    <a class="btn" href="index.html">الاستمارة</a>
+    <button class="btn" id="out">تسجيل خروج</button>
+  </header>
+  <main>
+    <div class="tabs">
+      <button class="btn on" data-tab="subs">التسليمات</button>
+      <button class="btn" data-tab="users">المستخدمين</button>
+    </div>
+
+    <section id="tab-subs">
+      <div class="card">
+        <div class="row">
+          <div><label>الشهر</label><input type="month" id="fm"></div>
+          <div><label>المستخدم</label><select id="fu"><option value="">الكل</option></select></div>
+          <div><label>بحث</label><input id="fq" placeholder="كود / منتج / مقدم"></div>
+          <button class="btn" id="fall">كل الشهور</button>
+          <button class="btn" id="reload">تحديث</button>
+          <button class="btn p" id="csv">تصدير CSV</button>
+        </div>
+        <div class="msg" id="sm"></div>
+      </div>
+      <div class="card"><b>عدد التسليمات لكل مستخدم</b>
+        <div class="scroll"><table class="sum" id="sum"></table></div>
+      </div>
+      <div class="card"><div class="scroll"><table id="tb"></table></div></div>
+    </section>
+
+    <section id="tab-users" hidden>
+      <div class="card">
+        <b>إضافة مستخدم</b>
+        <form id="uf" class="row" style="margin-top:8px">
+          <div><label>اسم المستخدم (إنجليزي)</label><input id="nu" dir="ltr" autocapitalize="none" placeholder="ahmed"></div>
+          <div><label>الباسورد (6 حروف على الأقل)</label><input id="np" dir="ltr"></div>
+          <div><label>الاسم بالعربي (بيظهر في خانة المنتج)</label><input id="nn" placeholder="أحمد ضياء"></div>
+          <button class="btn p" type="submit">إضافة</button>
+        </form>
+        <div class="msg" id="um"></div>
+        <div class="msg">لو الاسم موجود قبل كده وكان موقوف، اكتب نفس باسورده وهيتفعّل تاني. أول ما المستخدم يدخل بالباسورد اللي إنت كتبته، الاستمارة هتطلب منه يغيّره.</div>
+      </div>
+      <div class="card"><b>المستخدمين المفعّلين</b>
+        <div class="scroll"><table id="ut"></table></div>
+        <div class="msg">لتغيير باسورد مستخدم: امسحه من Firebase Console (Authentication ← Users)، وأضفه هنا من جديد.</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { getFirestore, collection, query, orderBy, limit, getDocs, doc, setDoc, deleteDoc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBR-MeJoQ1MAIATbB9rW5ut14VXjixpM_c",
+  authDomain: "prg-screening.firebaseapp.com",
+  projectId: "prg-screening",
+  storageBucket: "prg-screening.firebasestorage.app",
+  messagingSenderId: "927135609781",
+  appId: "1:927135609781:web:c35a1027e813c8734f5ffc"
+};
+const ADMIN = "admin@prg.local";
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app), db = getFirestore(app);
+// second app instance, used only to create accounts without signing the admin out
+const secAuth = getAuth(initializeApp(firebaseConfig, "secondary"));
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const monthOf = d => d ? d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") : "";
+const fmt = d => d ? d.toLocaleString("en-GB", {dateStyle:"short", timeStyle:"short"}) : "";
+let all = [];
+
+/* ---------- login ---------- */
+$("lf").addEventListener("submit", async e => {
+  e.preventDefault(); $("lm").textContent = "";
+  const name = $("lu").value.trim().toLowerCase().split("@")[0];
+  try { await signInWithEmailAndPassword(auth, name + "@prg.local", $("lp").value); $("lp").value = ""; }
+  catch (err) { $("lm").textContent = err.code === "auth/network-request-failed" ? "مفيش اتصال بالنت" : "اسم المستخدم أو الباسورد غلط"; }
+});
+$("out").onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, async u => {
+  if (u && u.email === ADMIN) {
+    $("login").hidden = true; $("app").hidden = false;
+    if (!$("fm").value) $("fm").value = monthOf(new Date());
+    try { await loadSubs(); } catch (err) { $("sm").textContent = "مقدرتش أحمّل التسليمات: " + (err.code || err.message); }
+  } else if (u) {
+    $("lm").textContent = "الحساب ده مش أدمن."; await signOut(auth);
+  } else {
+    $("app").hidden = true; $("login").hidden = false;
+  }
+});
+
+/* ---------- tabs ---------- */
+document.querySelectorAll("[data-tab]").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("[data-tab]").forEach(x => x.classList.toggle("on", x === b));
+  $("tab-subs").hidden = b.dataset.tab !== "subs";
+  $("tab-users").hidden = b.dataset.tab !== "users";
+  if (b.dataset.tab === "users") loadUsers();
+}));
+
+/* ---------- submissions ---------- */
+async function loadSubs() {
+  $("sm").textContent = "جاري التحميل…";
+  const snap = await getDocs(query(collection(db, "submissions"), orderBy("ts", "desc"), limit(5000)));
+  all = snap.docs.map(d => { const x = d.data(); return { id: d.id, ...x, date: x.ts?.toDate?.() || null }; });
+  const cur = $("fu").value;
+  const names = [...new Set(all.map(r => r.username))].sort();
+  $("fu").innerHTML = '<option value="">الكل</option>' + names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join("");
+  $("fu").value = names.includes(cur) ? cur : "";
+  render();
+}
+function filtered(withUser) {
+  const m = $("fm").value, u = $("fu").value, q = $("fq").value.trim().toLowerCase();
+  return all.filter(r => {
+    if (m && monthOf(r.date) !== m) return false;
+    if (withUser && u && r.username !== u) return false;
+    if (q && ![r.code, r.producer, r.presenter, r.username].join(" ").toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+function render() {
+  const base = filtered(false), counts = {};
+  base.forEach(r => counts[r.username] = (counts[r.username] || 0) + 1);
+  const names = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+  $("sum").innerHTML = "<tr><th>المستخدم</th><th>عدد التسليمات</th></tr>"
+    + names.map(n => `<tr><td><a data-u="${esc(n)}">${esc(n)}</a></td><td>${counts[n]}</td></tr>`).join("")
+    + `<tr><th>الإجمالي</th><th>${base.length}</th></tr>`;
+  const rows = filtered(true);
+  $("tb").innerHTML = "<tr><th>التاريخ</th><th>المستخدم</th><th>القناة</th><th>البرنامج</th><th>الصف</th><th>المادة</th><th>الحلقة</th><th>الكود</th><th>المنتج</th><th>المقدم</th><th>التيرم</th><th>طباعات</th><th></th></tr>"
+    + rows.map(r => `<tr><td>${esc(fmt(r.date))}</td><td>${esc(r.username)}</td><td>${esc(r.channel)}</td><td>${esc(r.programType)}</td><td>${esc(r.grade)}</td><td>${esc(r.subject)}</td><td>${esc(r.episode)}</td><td dir="ltr">${esc(r.code)}</td><td>${esc(r.producer)}</td><td>${esc(r.presenter)}</td><td>${esc(r.term)}</td><td>${esc(r.prints || 1)}</td><td><button class="btn d" data-del="${esc(r.id)}">مسح</button></td></tr>`).join("");
+  $("sm").textContent = rows.length + " تسليم";
+}
+["fm", "fu", "fq"].forEach(id => $(id).addEventListener("input", render));
+$("fall").onclick = () => { $("fm").value = ""; render(); };
+$("reload").onclick = () => loadSubs().catch(err => $("sm").textContent = "خطأ: " + (err.code || err.message));
+$("sum").addEventListener("click", e => { const a = e.target.closest("a[data-u]"); if (a) { $("fu").value = a.dataset.u; render(); } });
+$("tb").addEventListener("click", async e => {
+  const b = e.target.closest("[data-del]"); if (!b) return;
+  if (!confirm("تمسح التسليم ده؟")) return;
+  try { await deleteDoc(doc(db, "submissions", b.dataset.del)); await loadSubs(); }
+  catch (err) { alert("معرفتش أمسح: " + (err.code || err.message)); }
+});
+$("csv").onclick = () => {
+  const rows = filtered(true), q = v => '"' + String(v ?? "").replace(/"/g, '""') + '"';
+  const head = ["التاريخ","المستخدم","القناة","نوع البرنامج","الصف","المادة","رقم الحلقة","الكود","المنتج","المقدم","التيرم","تاريخ الاستلام","تاريخ الإذاعة","عدد الطباعات"];
+  const lines = [head.map(q).join(",")].concat(rows.map(r =>
+    [fmt(r.date), r.username, r.channel, r.programType, r.grade, r.subject, r.episode, r.code, r.producer, r.presenter, r.term, r.receivingDate, r.broadcastDate, r.prints || 1].map(q).join(",")));
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" }));
+  a.download = "submissions_" + ($("fm").value || "all") + ".csv";
+  document.body.appendChild(a); a.click(); a.remove();
+};
+
+/* ---------- users ---------- */
+async function loadUsers() {
+  const snap = await getDocs(collection(db, "allowed"));
+  const list = snap.docs.map(d => ({ uid: d.id, ...d.data() })).sort((a, b) => String(a.username).localeCompare(b.username));
+  $("ut").innerHTML = "<tr><th>المستخدم</th><th>الاسم</th><th>غيّر الباسورد المؤقت؟</th><th></th></tr>"
+    + list.map(u => `<tr><td>${esc(u.username)}</td><td>${esc(u.displayName || "")}</td><td>${u.mustChange ? "لسه" : "أيوه"}</td><td><button class="btn d" data-stop="${esc(u.uid)}">إيقاف</button></td></tr>`).join("");
+}
+$("ut").addEventListener("click", async e => {
+  const b = e.target.closest("[data-stop]"); if (!b) return;
+  if (!confirm("توقف المستخدم ده؟ هيفضل حسابه موجود بس مش هيقدر يسجّل تسليمات.")) return;
+  try { await deleteDoc(doc(db, "allowed", b.dataset.stop)); await loadUsers(); }
+  catch (err) { alert("خطأ: " + (err.code || err.message)); }
+});
+const umsg = (t, ok) => { $("um").textContent = t; $("um").className = "msg " + (ok ? "ok" : "err"); };
+$("uf").addEventListener("submit", async e => {
+  e.preventDefault();
+  const name = $("nu").value.trim().toLowerCase(), pw = $("np").value, email = name + "@prg.local";
+  if (!/^[a-z0-9._-]{3,30}$/.test(name)) return umsg("اسم المستخدم: حروف إنجليزي صغيرة وأرقام و . _ - بس، من 3 لـ 30 حرف", false);
+  if (name === "admin") return umsg("الاسم ده محجوز", false);
+  if (pw.length < 6) return umsg("الباسورد لازم يكون 6 حروف على الأقل", false);
+  try {
+    let uid, again = false;
+    try { uid = (await createUserWithEmailAndPassword(secAuth, email, pw)).user.uid; }
+    catch (err) {
+      if (err.code !== "auth/email-already-in-use") throw err;
+      uid = (await signInWithEmailAndPassword(secAuth, email, pw)).user.uid; again = true;   // existing user: re-activate
+    }
+    await setDoc(doc(db, "allowed", uid), { username: name, displayName: $("nn").value.trim(), createdAt: serverTimestamp(), mustChange: true });
+    await signOut(secAuth);
+    umsg(again ? "المستخدم اتفعّل تاني" : "المستخدم اتضاف", true);
+    $("nu").value = ""; $("np").value = ""; $("nn").value = "";
+    loadUsers();
+  } catch (err) {
+    umsg(err.code === "auth/invalid-credential" || err.code === "auth/wrong-password"
+      ? "الاسم موجود بباسورد تاني. امسحه من Firebase Console وأضفه من جديد."
+      : "خطأ: " + (err.code || err.message), false);
+  }
+});
+</script>
+</body>
+</html>
