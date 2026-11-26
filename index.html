@@ -238,10 +238,6 @@
       <div class="h">مشاهدة ثالثة</div>
       <div class="h">مشاهدة رابعة</div>
     </div>
-    <div class="fr-sig">
-      <span>Screener</span>
-      <span>Date:</span>
-    </div>
   </div>
 </div>
 
@@ -856,11 +852,15 @@ async function precheck(u, d) {
   const snap = await getDoc(ref);
   if (!snap.exists()) return "";
   const st = snap.data().status || "submitted";
-  if (st === "approved") return "التسليمة دي اتعمل لها «صالحة للإذاعة» واتقفلت، ومينفعش تتحفظ تاني.";
-  if (st === "changes") {
+  const names = { submitted: "منتظرة المشاهدة", fixed: "اتعدّلت وبتنتظر المشاهدة", approved: "صالحة للإذاعة" };
+  if (st !== "changes")
+    return "الحلقة دي اتبعتت للمكتبة بالفعل (حالتها: " + (names[st] || st) + ") ومينفعش تتبعت تاني من استمارة جديدة. لو المكتبة رجّعتها بملاحظات هتقدر تعدّلها من «📋 تسليماتي».";
+  let opened = ""; try { opened = localStorage.getItem("prgdev_open") || ""; } catch (e) {}
+  if (opened !== ref.id) return "المكتبة سابت ملاحظات على الحلقة دي. افتحها من «📋 تسليماتي» وعدّل عليها، مش من استمارة جديدة.";
+  {
     const ns = await getDocs(collection(db, "submissions", ref.id, "notes"));
     if (ns.docs.some(x => x.data().kind === "note" && !x.data().done))
-      return "لسه فيه ملاحظات من المكتبة ماعلّمتهاش «تم». افتح التسليمة من «📋 تسليماتي» وعلّمها الأول، وبعدين احفظ.";
+      return "لسه فيه ملاحظات من المكتبة ماعلّمتهاش «تم». علّمها الأول، وبعدين سلّم.";
   }
   return "";
 }
