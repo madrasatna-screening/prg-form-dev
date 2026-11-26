@@ -169,6 +169,27 @@ function filtered(withUser) {
     return true;
   });
 }
+const ST = { submitted: "منتظرة المشاهدة", changes: "فيها ملاحظات", fixed: "تم التعديل", approved: "صالحة للإذاعة" };
+const ORD = ["الأولى", "الثانية", "الثالثة", "الرابعة", "الخامسة", "السادسة", "السابعة", "الثامنة", "التاسعة", "العاشرة"];
+async function showLog(id) {
+  const r = all.find(x => x.id === id); if (!r) return;
+  const ns = (await getDocs(collection(db, "submissions", id, "notes"))).docs.map(d => ({ id: d.id, ...d.data(), t: d.data().ts?.toMillis?.() || 0 }));
+  const ev = [];
+  (r.history || []).forEach(h => ev.push({ t: h.at, html: `📤 <b>التسليم ${ORD[h.n - 1] || h.n}</b> من ${esc(r.username)}` }));
+  if (!(r.history || []).length) ev.push({ t: r.date ? r.date.getTime() : 0, html: `📤 <b>التسليم الأول</b> من ${esc(r.username)} (قبل تفعيل السجل التفصيلي، إجمالي الحفظات: ${esc(r.prints || 1)})` });
+  ns.filter(n => n.kind === "round").forEach(n => {
+    const notes = ns.filter(x => x.kind === "note" && x.round === n.round).sort((p, q) => p.t - q.t);
+    ev.push({ t: n.t, html: `👁️ <b>المشاهدة ${ORD[n.round - 1] || n.round}</b> — ${esc(n.byName)} — ` + (n.result === "approved" ? "✅ صالحة للإذاعة" : "❌ فيها ملاحظات")
+      + (notes.length ? "<ul>" + notes.map(x => `<li>${x.tc ? '<span dir="ltr">' + esc(x.tc) + "</span> — " : "<i>عامة</i> — "}${esc(x.text)}${x.cats && x.cats.length ? " [" + esc(x.cats.join("، ")) + "]" : ""}${x.done ? " ✔ تم" : ""}</li>`).join("") + "</ul>" : "") });
+  });
+  ev.sort((p, q) => p.t - q.t);
+  const box = document.createElement("div");
+  box.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99;display:flex;align-items:center;justify-content:center";
+  box.innerHTML = `<div style="background:#fff;border-radius:10px;max-width:760px;width:94vw;max-height:86vh;overflow:auto;padding:16px;direction:rtl"><div style="display:flex;justify-content:space-between;gap:10px"><b dir="ltr">${esc(r.code)}</b><button class="btn">إغلاق</button></div><p>الحالة: <b>${esc(ST[r.status] || ST.submitted)}</b></p>`
+    + ev.map(e => `<div style="border-top:1px solid #ddd;padding:8px 0"><small style="color:#666">${e.t ? esc(new Date(e.t).toLocaleString("en-GB")) : ""}</small><div>${e.html}</div></div>`).join("") + "</div>";
+  box.onclick = x => { if (x.target === box || x.target.tagName === "BUTTON") box.remove(); };
+  document.body.appendChild(box);
+}
 function render() {
   const base = filtered(false), counts = {};
   base.forEach(r => counts[r.username] = (counts[r.username] || 0) + 1);
@@ -177,8 +198,8 @@ function render() {
     + names.map(n => `<tr><td><a data-u="${esc(n)}">${esc(n)}</a></td><td>${counts[n]}</td></tr>`).join("")
     + `<tr><th>الإجمالي</th><th>${base.length}</th></tr>`;
   const rows = filtered(true);
-  $("tb").innerHTML = "<tr><th>التاريخ</th><th>المستخدم</th><th>القناة</th><th>البرنامج</th><th>الصف</th><th>المادة</th><th>الحلقة</th><th>الكود</th><th>المنتج</th><th>المقدم</th><th>التيرم</th><th>طباعات</th><th></th></tr>"
-    + rows.map(r => `<tr><td>${esc(fmt(r.date))}</td><td>${esc(r.username)}</td><td>${esc(r.channel)}</td><td>${esc(r.programType)}</td><td>${esc(r.grade)}</td><td>${esc(r.subject)}</td><td>${esc(r.episode)}</td><td dir="ltr">${esc(r.code)}</td><td>${esc(r.producer)}</td><td>${esc(r.presenter)}</td><td>${esc(r.term)}</td><td>${esc(r.prints || 1)}</td><td><button class="btn d" data-del="${esc(r.id)}">مسح</button></td></tr>`).join("");
+  $("tb").innerHTML = "<tr><th>التاريخ</th><th>المستخدم</th><th>القناة</th><th>البرنامج</th><th>الصف</th><th>المادة</th><th>الحلقة</th><th>الكود</th><th>المنتج</th><th>المقدم</th><th>التيرم</th><th>التسليمات</th><th>الحالة</th><th></th></tr>"
+    + rows.map(r => `<tr><td>${esc(fmt(r.date))}</td><td>${esc(r.username)}</td><td>${esc(r.channel)}</td><td>${esc(r.programType)}</td><td>${esc(r.grade)}</td><td>${esc(r.subject)}</td><td>${esc(r.episode)}</td><td dir="ltr">${esc(r.code)}</td><td>${esc(r.producer)}</td><td>${esc(r.presenter)}</td><td>${esc(r.term)}</td><td>${esc(r.prints || 1)}</td><td>${esc(ST[r.status] || ST.submitted)}</td><td><button class="btn p" data-log="${esc(r.id)}">السجل</button> <button class="btn d" data-del="${esc(r.id)}">مسح</button></td></tr>`).join("");
   $("sm").textContent = rows.length + " تسليم";
 }
 ["fm", "fu", "fq"].forEach(id => $(id).addEventListener("input", render));
@@ -186,6 +207,8 @@ $("fall").onclick = () => { $("fm").value = ""; render(); };
 $("reload").onclick = () => loadSubs().catch(err => $("sm").textContent = "خطأ: " + (err.code || err.message));
 $("sum").addEventListener("click", e => { const a = e.target.closest("a[data-u]"); if (a) { $("fu").value = a.dataset.u; render(); } });
 $("tb").addEventListener("click", async e => {
+  const lg = e.target.closest("[data-log]");
+  if (lg) { try { await showLog(lg.dataset.log); } catch (err) { alert("معرفتش أجيب السجل: " + (err.code || err.message)); } return; }
   const b = e.target.closest("[data-del]"); if (!b) return;
   if (!confirm("تمسح التسليم ده؟")) return;
   try { await deleteDoc(doc(db, "submissions", b.dataset.del)); await loadSubs(); }
