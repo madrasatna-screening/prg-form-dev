@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🧪 تجريبي – PRG Screening Report</title>
+<style>
+  :root{
+    --band:#cfd3d8;      /* grey band like the paper form */
+    --cell:#eef0f2;
+    --head:#b9c7e3;      /* light blue duration labels */
+    --line:#222;
+    --ink:#111;
+    --accent:#1f5fbf;
+    --font: "Segoe UI", Tahoma, Arial, "Noto Sans Arabic", sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#e6e8eb;color:var(--ink);font-family:var(--font)}
+
+  /* ---------- toolbar (screen only) ---------- */
+  .toolbar{position:sticky;top:0;z-index:10;display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+    padding:10px 16px;background:#1d2733;color:#fff;direction:rtl}
+  .toolbar h1{font-size:16px;margin:0 0 0 auto;font-weight:600}
+  .btn{border:0;border-radius:6px;padding:8px 14px;font:inherit;font-size:14px;cursor:pointer;background:#3a4756;color:#fff}
+  .btn:hover{filter:brightness(1.15)}
+  .btn.primary{background:var(--accent)}
+  .btn.danger{background:#a33}
+  .saved{font-size:12px;opacity:.75}
+
+  /* ---------- the sheet ---------- */
+  .sheet{width:210mm;min-height:297mm;margin:18px auto;background:#fff;padding:8mm 7mm;box-shadow:0 2px 14px rgba(0,0,0,.15);direction:ltr}
+  .frame{background:var(--band);padding:3mm 3mm 3mm}
+  .title{background:#f4f5f6;text-align:center;font-weight:800;font-size:17pt;letter-spacing:.5px;padding:1mm 0;margin-bottom:1.5mm}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:1.2mm 2mm}
+  .f{display:flex;align-items:center;gap:2mm;background:var(--cell);min-height:8.2mm;padding:0 2mm}
+  .f label{font-weight:700;font-size:10pt;white-space:nowrap;min-width:30mm}
+  .f .val{flex:1;display:flex;align-items:center}
+  .dur{display:grid;grid-template-columns:1fr 1fr;gap:0 2mm;margin-top:1.5mm}
+  .dur .f label{background:var(--head);align-self:stretch;display:flex;align-items:center;padding:0 2mm;margin-left:-2mm}
+  .checks{display:grid;grid-template-columns:repeat(5,1fr);border:1px solid var(--line);margin-top:1mm;background:#dfe5f1;direction:rtl}
+  .checks .ck{display:flex;align-items:center;justify-content:center;gap:2mm;border-left:1px solid var(--line);min-height:7.5mm;font-size:10pt;cursor:pointer;user-select:none}
+  .checks .ck:last-child{border-left:0}
+  .box{width:6mm;height:6mm;border:1px solid var(--line);background:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11pt;font-weight:700}
+  .ck .lbl{outline:none;padding:0 1mm;border-radius:3px}
+  .ck .lbl:focus{background:#fff}
+
+  /* inputs */
+  input,select{font:inherit;font-size:10pt;color:var(--ink);background:#fff;border:1px solid #9aa4b0;border-radius:4px;padding:3px 6px;width:100%;min-width:0}
+  input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent)}
+  .ar{direction:rtl;text-align:right}
+  .prog{gap:1mm;direction:rtl;flex-wrap:wrap}
+  .combo{position:relative;flex:1 1 100%}
+  .prog .ptype{flex:1 1 100%}
+  .combo input{padding-left:20px}
+  .combo::after{content:"▾";position:absolute;left:7px;top:50%;transform:translateY(-50%);pointer-events:none;color:#555;font-size:11px}
+  .cl{position:absolute;z-index:20;left:0;right:0;top:100%;margin:2px 0 0;padding:3px 0;list-style:none;background:#fff;border:1px solid #9aa4b0;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,.15);max-height:220px;overflow:auto}
+  .cl li{padding:5px 10px;cursor:pointer;direction:rtl;text-align:right;font-size:10pt}
+  .cl li:hover,.cl li.on{background:#e3ecfa}
+  .time{width:auto;text-align:center;font-variant-numeric:tabular-nums}
+  .pv{display:none}
+  /* empty date boxes: hide the dd/mm/yyyy hint until the field is clicked */
+  input[type=date].empty:not(:focus){color:transparent}
+  input[type=date].empty:not(:focus)::-webkit-datetime-edit{color:transparent}
+
+  /* notes table */
+  table.notes{width:100%;border-collapse:collapse;margin-top:2mm;table-layout:fixed}
+  .notes th,.notes td{border:1px solid var(--line);padding:0;font-size:9.5pt}
+  .notes thead th{background:var(--band);font-weight:700}
+  .notes .ser{width:9mm;text-align:center}
+  .notes .tc{width:34mm}
+  .notes .cat{width:6.5mm}
+  .notes .vert{writing-mode:vertical-rl;transform:rotate(180deg);font-weight:500;font-size:8.5pt;padding:1mm 0;height:20mm}
+  .notes tbody tr:nth-child(even) td{background:#f1f2f4}
+  .notes td{height:7.3mm}
+  .notes td input,.notes td select{border:0;border-radius:0;background:transparent;height:100%;padding:0 4px}
+  .notes td.mark{text-align:center}
+  .head-desc{font-size:13pt}
+
+  /* final report (static, filled by hand) */
+  .final{background:var(--band);padding:2mm 3mm 3mm;margin-top:2mm}
+  .final .ttl{text-align:center;font-weight:800;font-size:13pt;background:#f4f5f6;margin:0 0 1mm}
+  .fr-acc{display:grid;grid-template-columns:1fr 1fr;background:var(--cell);padding:1.5mm 2mm;font-size:10pt}
+  .fr-acc .fa{display:inline-flex;align-items:center;gap:20mm}
+  .box.big{width:9mm;height:7mm}
+  .fr-scr{display:grid;grid-template-columns:22mm 1fr 1fr 1fr;background:var(--cell);padding:1.5mm 2mm 0;min-height:22mm}
+  .fr-scr .u{text-decoration:underline;font-weight:600;font-size:10pt}
+  .fr-scr .rl{direction:rtl;text-align:right;font-size:11pt;padding-right:4mm;line-height:1.5}
+  .fr-scr .rl:first-of-type{margin-top:1mm}
+  .fr-scr .h{text-align:center;direction:rtl;font-size:12pt}
+  .fr-sig{display:grid;grid-template-columns:1fr 1fr;background:var(--cell);padding:2mm 2mm 3mm;font-size:10pt}
+
+  /* dialog */
+  dialog{border:0;border-radius:10px;padding:0;width:min(720px,94vw);direction:rtl;font-family:var(--font)}
+  dialog::backdrop{background:rgba(0,0,0,.45)}
+  .dlg-h{padding:14px 18px;background:#1d2733;color:#fff;font-weight:600}
+  .dlg-b{padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:12px;max-height:70vh;overflow:auto}
+  .dlg-b label{font-size:13px;font-weight:600;display:block;margin-bottom:4px}
+  .dlg-b textarea{width:100%;height:110px;font:inherit;font-size:13px;border:1px solid #9aa4b0;border-radius:6px;padding:6px;direction:rtl}
+  .dlg-b .hint{grid-column:1/-1;font-size:12px;color:#555;margin:0}
+  .dlg-f{padding:12px 18px;display:flex;gap:8px;justify-content:flex-start;border-top:1px solid #ddd}
+  .dlg-f .btn{background:#e3e6ea;color:#111}
+  .dlg-f .btn.primary{background:var(--accent);color:#fff}
+  .msg{padding:18px;font-size:15px}
+
+  /* ---------- PRINT ---------- */
+  @page{size:A4 portrait;margin:6mm}
+  /* same look as print, used when building the PDF */
+  #sheet.pdfmode .cl,#sheet.pdfmode .combo::after{display:none!important}
+  #sheet.pdfmode{margin:0;box-shadow:none;width:auto;min-height:0;padding:0}
+  #sheet.pdfmode input,#sheet.pdfmode select{display:none!important}
+  #sheet.pdfmode .pv{display:inline;font-size:10pt}
+  #sheet.pdfmode .ck .lbl{background:transparent}
+  #sheet.pdfmode .notes td .pv{display:block;padding:0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #sheet.pdfmode .notes td.desc .pv{white-space:normal;line-height:1.15;font-size:9pt;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  #sheet.pdfmode .title{font-size:15pt;padding:.5mm 0;margin-bottom:1mm}
+  #sheet.pdfmode .frame{padding:2mm}
+  #sheet.pdfmode .f{min-height:6.6mm}
+  #sheet.pdfmode .grid{gap:1mm 2mm}
+  #sheet.pdfmode .dur{margin-top:1mm}
+  #sheet.pdfmode .checks .ck{min-height:6.5mm}
+  #sheet.pdfmode .box{width:5mm;height:5mm;font-size:10pt}
+  #sheet.pdfmode .notes{margin-top:1.5mm}
+  #sheet.pdfmode .notes td{height:6.25mm}
+  #sheet.pdfmode .notes .vert{height:14mm}
+  #sheet.pdfmode .final{padding:1.5mm 2mm 2mm;margin-top:1.5mm}
+  #sheet.pdfmode .final .ttl{font-size:12pt;margin-bottom:1mm}
+  #sheet.pdfmode .fr-acc,#sheet.pdfmode .fr-sig{padding:1mm 2mm 1.5mm}
+  #sheet.pdfmode .fr-scr{min-height:19mm}
+  #sheet.pdfmode{width:198mm;margin:0;padding:0}
+  @media print{
+    html,body{background:#fff}
+    .toolbar,dialog,.cl,.combo::after{display:none!important}
+    .sheet{margin:0;box-shadow:none;width:auto;min-height:0;padding:0}
+    input,select{display:none!important}
+    .pv{display:inline;font-size:10pt}
+    .ck .lbl{background:transparent}
+    .notes td .pv{display:block;padding:0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .notes td.desc .pv{white-space:normal;line-height:1.15;font-size:9pt;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+    #sheet{zoom:var(--pz,1);width:calc(198mm / var(--pz,1))!important}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .title{font-size:15pt;padding:.5mm 0;margin-bottom:1mm}
+    .frame{padding:2mm}
+    .f{min-height:6.6mm}
+    .grid{gap:1mm 2mm}
+    .dur{margin-top:1mm}
+    .checks .ck{min-height:6.5mm}
+    .box{width:5mm;height:5mm;font-size:10pt}
+    .notes{margin-top:1.5mm}
+    .notes td{height:6.25mm}
+    .notes .vert{height:14mm}
+    .final{padding:1.5mm 2mm 2mm;margin-top:1.5mm}
+    .final .ttl{font-size:12pt;margin-bottom:1mm}
+    .fr-acc,.fr-sig{padding:1mm 2mm 1.5mm}
+    .fr-scr{min-height:19mm}
+  }
+</style>
+</head>
+<body>
+
+<div style="background:#b45309;color:#fff;text-align:center;font:600 13px 'Segoe UI',Tahoma,Arial,sans-serif;padding:5px;direction:rtl">🧪 نسخة تجريبية — للتطوير فقط، مش للاستخدام الفعلي</div>
+<div class="toolbar">
+  <h1>استمارة تسليم الحلقات – PRG Screening Report</h1>
+  <span class="saved" id="savedNote"></span>
+  <button class="btn" id="btnLists">⚙️ تعديل القوائم</button>
+  <button class="btn danger" id="btnNew">🗒️ استمارة جديدة</button>
+  <button class="btn primary" id="btnPrint" style="display:none">🖨️ طباعة</button>
+  <button class="btn" id="btnSavePdf" style="background:#1d7a3a">📄 حفظ PDF (تسليم)</button>
+</div>
+
+<div class="sheet" id="sheet">
+  <div class="frame">
+    <div class="title">PRG SCREENING REPORT</div>
+
+    <div class="grid">
+      <div class="f"><label>Receiving Date:</label><div class="val"><input type="date" data-k="recvDate" data-fmt="date"></div></div>
+      <div class="f"><label>Producer:</label><div class="val"><div class="combo"><input class="ar" data-k="producer" data-list="producers" placeholder="اختر أو اكتب" autocomplete="off"><ul class="cl" hidden></ul></div></div></div>
+
+      <div class="f"><label>Channel:</label><div class="val"><select class="ar" data-k="channel" data-opts="channels"></select></div></div>
+      <div class="f"><label>Broadcast Date:</label><div class="val"><input type="date" data-k="bcDate" data-fmt="date"></div></div>
+
+      <div class="f"><label>Program:</label><div class="val prog">
+        <select class="ar ptype" data-k="ptype" data-nopv title="البرنامج"></select>
+        <div class="combo"><input class="ar" data-k="grade" data-nopv placeholder="الصف – اختر أو اكتب" autocomplete="off"><ul class="cl" hidden></ul></div>
+        <div class="combo"><input class="ar" data-k="subject" data-nopv placeholder="المادة – اختر أو اكتب" autocomplete="off"><ul class="cl" hidden></ul></div>
+        <input type="hidden" data-k="program">
+      </div></div>
+      <div class="f"><label>PRESENTER :</label><div class="val"><div class="combo"><input class="ar" data-k="presenter" data-list="presenters" placeholder="اختر أو اكتب" autocomplete="off"><ul class="cl" hidden></ul></div></div></div>
+
+      <div class="f"><label>Episode No.:</label><div class="val"><input type="number" min="1" data-k="episode" style="width:30mm"></div></div>
+      <div class="f"><label>TERM :</label><div class="val"><select class="ar" data-k="term" data-opts="terms"></select></div></div>
+
+      <div class="f"><label>DESCRIPTION :</label><div class="val"><input data-k="desc1" dir="auto" placeholder="بيتكتب تلقائي من الصف والمادة ورقم الحلقة"></div></div>
+      <div class="f"><label>DESCRIPTION :</label><div class="val"><input class="ar" data-k="desc2" dir="auto"></div></div>
+    </div>
+
+    <div class="dur">
+      <div class="f"><label>Duration PART 1 :</label><div class="val"><input class="time" data-k="dur1" data-mask="mmss" placeholder="mm:ss" maxlength="6" inputmode="numeric" style="width:24mm"></div></div>
+      <div class="f"><label>Duration PART 2 :</label><div class="val"><input class="time" data-k="dur2" data-mask="mmss" maxlength="6" inputmode="numeric" style="width:24mm"></div></div>
+    </div>
+
+    <div class="checks" id="checks"></div>
+  </div>
+
+  <table class="notes">
+    <colgroup><col style="width:9mm"><col style="width:32mm"><col style="width:7mm"><col style="width:7mm"><col style="width:7mm"><col style="width:7mm"><col></colgroup>
+    <thead>
+      <tr>
+        <th class="ser" rowspan="2"><div class="vert" style="height:auto">Ser.</div></th>
+        <th class="tc" rowspan="2">TC In</th>
+        <th colspan="4">Category</th>
+        <th rowspan="2" class="head-desc">Description</th>
+      </tr>
+      <tr>
+        <th class="cat"><div class="vert">Audio</div></th>
+        <th class="cat"><div class="vert">Video</div></th>
+        <th class="cat"><div class="vert">Content</div></th>
+        <th class="cat"><div class="vert">Graphic</div></th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <div class="final">
+    <div class="ttl">Final Report</div>
+    <div class="fr-acc">
+      <span class="fa">Accepted <span class="box big"></span></span>
+      <span class="fa">Rejected <span class="box big"></span></span>
+    </div>
+    <div class="fr-scr">
+      <div class="c1">
+        <div class="u">SCREENER</div>
+        <div class="rl">الاسم</div>
+        <div class="rl">التاريخ</div>
+      </div>
+      <div class="h">مشاهد اولي</div>
+      <div class="h">مشاهد ثانيه</div>
+      <div class="h">مشاهد ثالثه</div>
+    </div>
+    <div class="fr-sig">
+      <span>Screener</span>
+      <span>Date:</span>
+    </div>
+  </div>
+</div>
+
+<!-- datalists -->
+<datalist id="dl-producers"></datalist>
+<datalist id="dl-presenters"></datalist>
+<datalist id="dl-notes"></datalist>
+
+<!-- Lists dialog -->
+<dialog id="dlgLists">
+  <div class="dlg-h">تعديل القوائم المنسدلة</div>
+  <div class="dlg-b">
+    <p class="hint">اكتب كل اختيار في سطر لوحده. القوائم بتتحفظ على الجهاز ده بس؛ علشان توصل لغيرك دوس «نزّل نسخة للمشاركة» وابعت الملف الجديد.</p>
+    <div><label>القنوات</label><textarea data-list-edit="channels"></textarea></div>
+    <div><label>التيرم</label><textarea data-list-edit="terms"></textarea></div>
+    <div><label>المنتجين</label><textarea data-list-edit="producers"></textarea></div>
+    <div><label>المقدمين</label><textarea data-list-edit="presenters"></textarea></div>
+  </div>
+  <div class="dlg-f">
+    <button class="btn primary" id="saveLists">حفظ</button>
+    <button class="btn" id="closeLists">إلغاء</button>
+    <button class="btn" id="exportApp" style="margin-right:auto;background:#1d7a46;color:#fff" title="بينزّل index.html جديد فيه القوائم دي، تبعته للناس أو ترفعه">⬇️ نزّل نسخة للمشاركة بالقوائم دي</button>
+  </div>
+</dialog>
+
+<!-- Confirm dialog -->
+<dialog id="dlgConfirm">
+  <div class="dlg-h">استمارة جديدة</div>
+  <div class="msg">هيتم مسح كل البيانات المكتوبة في الاستمارة الحالية. متأكد؟</div>
+  <div class="dlg-f">
+    <button class="btn primary" id="yesNew" style="background:#a33">أيوه، امسح</button>
+    <button class="btn" id="noNew">لأ</button>
+  </div>
+</dialog>
+
+<script type="application/json" id="builtin-lists">
+{
+ "channels": [
+  "مدرستنا 1",
+  "مدرستنا 2",
+  "مدرستنا 3"
+ ],
+ "terms": [
+  "التيرم الأول",
+  "التيرم الثاني",
+  "الصيف"
+ ],
+ "programs": [],
+ "screeners": [],
+ "producers": [
+  "ضياء عاطف",
+  "أحمد ضياء",
+  "نوف سناري",
+  "أحمد الحجاوي",
+  "أيمن يوسف",
+  "زهرة حسن",
+  "أحمد دياب",
+  "هيثم الأزعر",
+  "هيثم الصاوي",
+  "آية عماد",
+  "مازن شاهين",
+  "ضياء رشدي"
+ ],
+ "presenters": [
+  "عمر عادل",
+  "عبدالغني محمد",
+  "سارة مدحت",
+  "ايلاريا عاطف",
+  "رضا سعيد",
+  "ادوارد ايميل",
+  "دينا توفيق",
+  "سامي عبد الله",
+  "خلود اشرف",
+  "غاده رمضان",
+  "احمد طارق",
+  "منار مجدي",
+  "ندى الصفتي",
+  "داليا محمد",
+  "محمد صبحي",
+  "عبد الغني عاشور",
+  "محمد مختار"
+ ],
+ "notes": [
+  "صوت منخفض",
+  "صوت مرتفع",
+  "تشويش في الصوت",
+  "عدم تزامن الصوت مع الصورة",
+  "اهتزاز في الصورة",
+  "صورة غير واضحة",
+  "خطأ إملائي في الجرافيك",
+  "خطأ علمي في المحتوى",
+  "قطع مفاجئ"
+ ]
+}
+</script>
+<script>
+(function(){
+  // untouched copy of this page, taken before the script changes anything
+  const PRISTINE = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+  const ROWS = 23;
+  const CATS = ["Audio","Video","Content","Graphic"];
+  const CHECKS_DEFAULT = ["تتر البداية","اسم المقدم","الرعاية","البجاية","تتر النهاية"];
+  const LS_LISTS = "prgdev_lists_v1", LS_DRAFT = "prgdev_draft_v1", LS_LABELS = "prgdev_labels_v1";
+
+  // built-in lists live in the JSON block above, so a fresh copy of the app can carry updated lists
+  const DEFAULT_LISTS = JSON.parse(document.getElementById("builtin-lists").textContent);
+
+  const store = {
+    get(k,d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+    set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } }
+  };
+
+  // built-in names always show; names a person added on their own device are kept too
+  // A list the person saved on this device wins: names they deleted stay deleted.
+  // Only names that are NEW in this copy of the app (not seen here before) get added to it.
+  const savedLists = store.get(LS_LISTS, {});
+  const seenBuiltin = store.get("prgdev_seen_builtin_v1", null) || DEFAULT_LISTS;
+  let lists = Object.assign({}, DEFAULT_LISTS, savedLists);
+  ["producers","presenters","notes"].forEach(k=>{
+    if(!Array.isArray(savedLists[k])) return;
+    const seen = seenBuiltin[k] || [];
+    const fresh = (DEFAULT_LISTS[k]||[]).filter(x=>!seen.includes(x));
+    lists[k] = [...new Set([...savedLists[k], ...fresh])];
+  });
+  store.set("prgdev_seen_builtin_v1", DEFAULT_LISTS);
+  // rename "الترم" to "التيرم" in lists saved by older versions
+  lists.terms = [...new Set((lists.terms||[]).map(t=>t.replace(/^الترم(?=\s|$)/,"التيرم")))];
+  store.set(LS_LISTS, lists);
+  // one-time cleanup: remove "مدرستنا 1-2" from lists saved by an older version
+  if(!store.get("prgdev_mig_ch12", false)){
+    lists.channels = (lists.channels||[]).filter(c=>c!=="مدرستنا 1-2");
+    store.set(LS_LISTS, lists); store.set("prgdev_mig_ch12", true);
+  }
+  let labels = store.get(LS_LABELS, CHECKS_DEFAULT);
+  if(!Array.isArray(labels) || labels.length !== 5) labels = CHECKS_DEFAULT.slice();
+
+  /* ---------- build check boxes row (RTL like the paper) ---------- */
+  const checksEl = document.getElementById("checks");
+  labels.forEach((t,i)=>{
+    const d = document.createElement("div");
+    d.className = "ck";
+    d.innerHTML = `<span class="lbl" contenteditable="true" spellcheck="false" title="اضغط لتعديل الاسم"></span><span class="box" data-check="${i}"></span>`;
+    d.querySelector(".lbl").textContent = t;
+    d.querySelector(".box").addEventListener("click", e=>{ toggleCheck(i); });
+    d.addEventListener("click", e=>{ if(!e.target.classList.contains("lbl") && !e.target.classList.contains("box")) toggleCheck(i); });
+    d.querySelector(".lbl").addEventListener("input", ()=>{
+      labels = [...checksEl.querySelectorAll(".lbl")].map(x=>x.textContent.trim());
+      store.set(LS_LABELS, labels);
+    });
+    checksEl.appendChild(d);
+  });
+  let checks = [false,false,false,false,false];
+  function toggleCheck(i){ checks[i] = !checks[i]; renderChecks(); save(); }
+  function renderChecks(){ checksEl.querySelectorAll("[data-check]").forEach(b=>{ b.textContent = checks[+b.dataset.check] ? "✓" : ""; }); }
+
+  /* ---------- build 23 rows ---------- */
+  const tbody = document.getElementById("rows");
+  for(let r=1;r<=ROWS;r++){
+    const tr = document.createElement("tr");
+    tr.innerHTML =
+      // notes table is left blank on purpose: it is filled in by hand after printing
+      `<td class="ser">${r}</td><td></td>`+
+      CATS.map(()=>`<td class="mark"></td>`).join("")+
+      `<td class="desc"></td>`;
+    tbody.appendChild(tr);
+  }
+
+  /* ---------- Program = program type + grade + subject; grades depend on channel ---------- */
+  const GRADES = {
+    "مدرستنا 1":["الصف الرابع الابتدائي","الصف الخامس الابتدائي","الصف السادس الابتدائي"],
+    "مدرستنا 2":["الصف الأول الإعدادي","الصف الثاني الإعدادي","الصف الثالث الإعدادي"]
+  };
+  const ALL_GRADES = [].concat(...Object.values(GRADES));
+  const SUBJECTS = ["لغة عربية","لغة إنجليزية","دراسات اجتماعية","علوم عربي","علوم إنجليزي","رياضيات عربي","رياضيات إنجليزي"];
+  const $k = k => document.querySelector(`[data-k="${k}"]`);
+  const gradeIn = $k("grade"), subjIn = $k("subject"), ptypeSel = $k("ptype");
+
+  // combo box: click to pick from the list, or just type anything
+  function combo(input, getOpts){
+    const ul = input.parentElement.querySelector(".cl");
+    function show(){
+      const opts = getOpts(), v = input.value.trim();
+      const list = (!v || opts.includes(v)) ? opts : opts.filter(o=>o.includes(v));
+      if(!list.length){ ul.hidden = true; return; }
+      ul.innerHTML = list.map(o=>`<li class="${o===v?'on':''}">${esc(o)}</li>`).join("");
+      ul.hidden = false;
+    }
+    input.addEventListener("focus", show);
+    input.addEventListener("click", show);
+    input.addEventListener("input", show);
+    input.addEventListener("keydown", e=>{ if(e.key==="Escape"||e.key==="Enter") ul.hidden = true; });
+    input.addEventListener("blur", ()=> setTimeout(()=> ul.hidden = true, 150));
+    ul.addEventListener("mousedown", e=>{
+      const li = e.target.closest("li"); if(!li) return;
+      e.preventDefault();
+      input.value = li.textContent; ul.hidden = true;
+      input.dispatchEvent(new Event("input", {bubbles:true}));
+      ul.hidden = true;
+    });
+  }
+  // program types and how their DESCRIPTION code is built
+  //   lessons : Pri05_Arabic_Eps01          models : Prep03_Math_AR_Nmozg01
+  //   Daleel  : Daleel_Pri05_Arabic_Eps01   Azaker : Azaker_Prep03_Science_EN_Eps01
+  const PTYPES = [
+    {name:"دروس المنهج",            prefix:"",       ep:"Eps"},
+    {name:"النماذج الاسترشادية",     prefix:"",       ep:"Nmozg", extra:true},
+    {name:"دليل المعلم",            prefix:"Daleel", ep:"Eps"},
+    {name:"أذاكر لأولادي ازاي",      prefix:"Azaker", ep:"Eps"}
+  ];
+  ptypeSel.innerHTML = PTYPES.map((t,i)=>`<option value="${i}">${esc(t.name)}</option>`).join("");
+  const ptype = ()=> PTYPES[+ptypeSel.value] || PTYPES[0];
+  // extra subjects offered with the guidance models (on top of the usual ones)
+  const NMOZG_SUBJECTS = ["لغة فرنسية","لغة ألمانية","علوم فرنساوي","رياضيات فرنساوي","حاسب آلى عربي","حاسب آلى إنجليزي","حاسب آلى فرنساوي","تربية دينية إسلامية","تربية دينية مسيحية","تربية فنية"];
+  combo(gradeIn, ()=> GRADES[$k("channel").value] || ALL_GRADES);
+  combo(subjIn, ()=> ptype().extra ? SUBJECTS.concat(NMOZG_SUBJECTS) : SUBJECTS);
+  // producer / presenter use the same drop-down, filled from the lists
+  combo($k("producer"), ()=> lists.producers || []);
+  combo($k("presenter"), ()=> lists.presenters || []);
+
+  function updateGrades(){
+    // channel changed: clear a grade that belongs to the other channel's list
+    const g = GRADES[$k("channel").value];
+    if(g && ALL_GRADES.includes(gradeIn.value) && !g.includes(gradeIn.value)) gradeIn.value = "";
+  }
+  /* ---------- auto DESCRIPTION code ---------- */
+  const GRADE_CODES = {
+    "الصف الرابع الابتدائي":"Pri04","الصف الخامس الابتدائي":"Pri05","الصف السادس الابتدائي":"Pri06",
+    "الصف الأول الإعدادي":"Prep01","الصف الثاني الإعدادي":"Prep02","الصف الثالث الإعدادي":"Prep03"
+  };
+  const SUBJECT_CODES = {
+    "لغة عربية":"Arabic","لغة إنجليزية":"English","دراسات اجتماعية":"Social",
+    "علوم عربي":"Science_AR","علوم إنجليزي":"Science_EN","رياضيات عربي":"Math_AR","رياضيات إنجليزي":"Math_EN",
+    "لغة فرنسية":"French","لغة ألمانية":"German","علوم فرنساوي":"Science_FR","رياضيات فرنساوي":"Math_FR",
+    "حاسب آلى عربي":"ICT_AR","حاسب آلى إنجليزي":"ICT_EN","حاسب آلى فرنساوي":"ICT_FR",
+    "تربية دينية إسلامية":"Islamic_Religion","تربية دينية مسيحية":"Christian_Religion","تربية فنية":"Art"
+  };
+  let lastAuto = null;
+  function autoDesc(){
+    const g = gradeIn.value.trim(), sb = subjIn.value.trim(), ep = $k("episode").value.trim();
+    if(!g || !sb || !ep) return "";
+    const t = ptype(), num = String(parseInt(ep,10)||ep).padStart(2,"0");
+    return [t.prefix, GRADE_CODES[g]||g, SUBJECT_CODES[sb]||sb].filter(Boolean).join("_") + `_${t.ep}${num}`;
+  }
+  function updateDesc(){
+    const d = $k("desc1"), a = autoDesc();
+    // only overwrite if the field is empty or still holds the previous automatic value
+    if(d.value === "" || d.value === lastAuto) d.value = a;
+    lastAuto = a;
+  }
+  function updateProgram(){
+    const g = gradeIn.value.trim(), sb = subjIn.value.trim(), t = ptype();
+    const parts = [g, sb].filter(Boolean);
+    if(+ptypeSel.value !== 0 && parts.length) parts.unshift(t.name);   // lessons are shown as "grade – subject"
+    $k("program").value = parts.join(" – ");
+  }
+  $k("channel").addEventListener("change", updateGrades);
+
+  /* ---------- add print-value spans after every field ---------- */
+  const fields = [...document.querySelectorAll("[data-k]")];
+  fields.forEach(el=>{
+    if(/^cat\d+$/.test(el.dataset.k) || el.hasAttribute("data-nopv")) return;
+    const s = document.createElement("span");
+    s.className = "pv";
+    if(el.classList.contains("ar")) s.style.direction = "rtl";
+    el.after(s);
+    el._pv = s;
+  });
+
+  /* ---------- fill dropdowns / datalists ---------- */
+  function fillOptions(){
+    document.querySelectorAll("select[data-opts]").forEach(sel=>{
+      const cur = sel.value;
+      const opts = lists[sel.dataset.opts] || [];
+      sel.innerHTML = `<option value=""></option>` + opts.map(o=>`<option>${esc(o)}</option>`).join("");
+      if(cur && !opts.includes(cur)) sel.insertAdjacentHTML("beforeend", `<option>${esc(cur)}</option>`);
+      sel.value = cur;
+    });
+    ["producers","presenters","notes"].forEach(k=>{
+      document.getElementById("dl-"+k).innerHTML = (lists[k]||[]).map(o=>`<option value="${esc(o)}">`).join("");
+    });
+  }
+  function esc(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+  /* ---------- masks ---------- */
+  // del = true when the user is deleting, so we don't re-add a colon they just removed
+  function maskTC(v, del){ // HH:MM:SS:FF
+    const d = v.replace(/\D/g,"").slice(0,8);
+    let out = d.replace(/(\d{2})(?=\d)/g,"$1:");
+    if(!del && d.length && d.length%2===0 && d.length<8) out += ":";
+    return out;
+  }
+  function maskMMSS(v, del){
+    if(v.includes(":")){ // keep the colon the user typed
+      const [a,b=""] = v.split(":");
+      return a.replace(/\D/g,"").slice(0,3) + ":" + b.replace(/\D/g,"").slice(0,2);
+    }
+    const d = v.replace(/\D/g,"").slice(0,5);
+    if(d.length>2) return d.slice(0,2)+":"+d.slice(2,4);
+    return (!del && d.length===2) ? d+":" : d;
+  }
+  document.addEventListener("input", e=>{
+    const el = e.target, del = /^delete/.test(e.inputType||"");
+    if(el.dataset && el.dataset.mask==="tc") el.value = maskTC(el.value, del);
+    if(el.dataset && el.dataset.mask==="mmss") el.value = maskMMSS(el.value, del);
+  });
+
+  /* ---------- sync print values ---------- */
+  function fmtDate(v){ if(!v) return ""; const [y,m,d] = v.split("-"); return `${d} / ${m} / ${y}`; }
+  function sync(){
+    updateProgram(); updateDesc();
+    document.querySelectorAll('input[type=date]').forEach(d=> d.classList.toggle("empty", !d.value));
+    fields.forEach(el=>{
+      if(el._pv) el._pv.textContent = el.dataset.fmt==="date" ? fmtDate(el.value) : el.value;
+    });
+  }
+
+  /* ---------- draft autosave ---------- */
+  const note = document.getElementById("savedNote");
+  let t;
+  function save(){
+    clearTimeout(t);
+    t = setTimeout(()=>{
+      const data = {checks};
+      fields.forEach(el=> data[el.dataset.k] = el.value);
+      if(store.set(LS_DRAFT, data)) note.textContent = "✔ محفوظ تلقائيًا";
+    }, 300);
+  }
+  function load(){
+    const data = store.get(LS_DRAFT, null);
+    fillOptions();
+    if(data){
+      fields.forEach(el=>{
+        const v = data[el.dataset.k];
+        if(v===undefined) return;
+        if(el.tagName==="SELECT" && v && ![...el.options].some(o=>o.value===v)) el.insertAdjacentHTML("beforeend", `<option>${esc(v)}</option>`);
+        el.value = v;
+      });
+      if(Array.isArray(data.checks)) checks = data.checks;
+      const tm = $k("term"); if(tm.value.startsWith("الترم")){ const nv = tm.value.replace(/^الترم/,"التيرم"); if(![...tm.options].some(o=>o.value===nv)) tm.insertAdjacentHTML("beforeend",`<option>${esc(nv)}</option>`); tm.value = nv; [...tm.options].forEach(o=>{ if(o.value.startsWith("الترم")) o.remove(); }); }
+    }
+    // older versions kept the program inside the grade box
+    if(data){
+      const old = {"الصف الثالث الإعدادي-النماذج الاسترشادية":[1,"الصف الثالث الإعدادي"],"دليل المعلم":[2,""],"أذاكر لأولادي ازاي":[3,""]}[data.grade];
+      if(old){ ptypeSel.value = String(old[0]); gradeIn.value = old[1]; }
+    }
+    lastAuto = autoDesc();
+    ["grade","subject"].forEach(k=>{ if($k(k).value==="__m") $k(k).value = (data && data[k+"Manual"]) || ""; });
+    renderChecks(); sync();
+  }
+  document.addEventListener("input", ()=>{ sync(); save(); });
+  document.addEventListener("change", ()=>{ sync(); save(); });
+
+  /* ---------- learn new values into lists ---------- */
+  function learn(){
+    let changed = false;
+    fields.forEach(el=>{
+      const k = el.dataset.list, v = (el.value||"").trim();
+      if(!k || !v) return;
+      lists[k] = lists[k] || [];
+      if(!lists[k].includes(v)){ lists[k].push(v); changed = true; }
+    });
+    if(changed){ store.set(LS_LISTS, lists); fillOptions(); }
+  }
+
+  /* ---------- buttons ---------- */
+  /* When opened from the claude.ai link, the browser blocks printing inside the page.
+     There, the button builds a PDF of the filled form (named from DESCRIPTION) and downloads it. */
+  let downloads = null;
+  const btnPrint = document.getElementById("btnPrint");
+  const BTN_TXT = "📄 تنزيل PDF";
+  if(window.claude && typeof window.claude.use === "function"){
+    btnPrint.textContent = BTN_TXT;
+    btnPrint.title = "بينزّل الاستمارة PDF جاهزة للطباعة";
+    window.claude.use("downloads").then(d=>{ downloads = d; }).catch(()=>{});
+  }
+  const BASE_TITLE = document.title;
+  function fileBase(){
+    return ($k("desc1").value.trim() || $k("desc2").value.trim() || "PRG_Screening_Report").replace(/[\\/:*?"<>|]+/g,"_");
+  }
+  function loadScript(src){
+    return new Promise((res,rej)=>{ const sc=document.createElement("script"); sc.src=src; sc.onload=res; sc.onerror=rej; document.head.appendChild(sc); });
+  }
+  async function buildPdf(){
+    if(!window.htmlToImage) await loadScript("https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js");
+    if(!window.jspdf) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+    const sheet = document.getElementById("sheet");
+    sheet.classList.add("pdfmode");
+    try{
+      const url = await window.htmlToImage.toJpeg(sheet, {pixelRatio:2.5, quality:0.95, backgroundColor:"#ffffff"});
+      const img = new Image(); img.src = url; await img.decode();
+      const pdf = new window.jspdf.jsPDF({unit:"mm", format:"a4", orientation:"portrait"});
+      const M = 6, maxW = 210-2*M, maxH = 297-2*M;
+      let w = maxW, h = img.height * w / img.width;
+      if(h > maxH){ h = maxH; w = img.width * h / img.height; }
+      pdf.addImage(url, "JPEG", (210-w)/2, M, w, h);
+      pdf.setProperties({title: fileBase()});
+      return pdf.output("blob");
+    } finally { sheet.classList.remove("pdfmode"); }
+  }
+  btnPrint.onclick = async ()=>{
+    sync(); learn();
+    if(downloads){
+      btnPrint.disabled = true; btnPrint.textContent = "⏳ جاري تجهيز الـ PDF…";
+      try{
+        const blob = await buildPdf();
+        await downloads.save({filename: fileBase() + ".pdf", data: blob});
+      }catch(e){
+        note.textContent = "⚠️ معرفتش أجهز الـ PDF، جرّب تاني";
+      }finally{
+        btnPrint.disabled = false; btnPrint.textContent = BTN_TXT;
+      }
+      return;
+    }
+    fitPrint();
+    document.title = fileBase();
+    try{ window.print(); }catch(e){}
+  };
+  const btnPdf = document.getElementById("btnPdf");
+  if(btnPdf) btnPdf.onclick = async ()=>{
+    sync(); learn();
+    btnPdf.disabled = true; btnPdf.textContent = "⏳ جاري التجهيز…";
+    try{
+      const blob = await buildPdf();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = fileBase() + ".pdf";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+    }catch(e){ note.textContent = "⚠️ معرفتش أجهز الـ PDF، اتأكد من الإنترنت وجرّب تاني"; }
+    finally{ btnPdf.disabled = false; btnPdf.textContent = "📄 تنزيل PDF"; }
+  };
+  /* shrink the form when printing so it always fits on one page (A4 or Letter),
+     even when long notes make the rows taller */
+  function fitPrint(){
+    sync();
+    const sh = document.getElementById("sheet");
+    document.documentElement.style.setProperty("--pz", "1");   // measure at full size
+    sh.classList.add("pdfmode");
+    const mm = sh.getBoundingClientRect().height / (96/25.4);
+    sh.classList.remove("pdfmode");
+    const z = Math.min(1, 262 / mm);   // 262mm fits both A4 and Letter with margins
+    document.documentElement.style.setProperty("--pz", z.toFixed(3));
+  }
+  window.addEventListener("beforeprint", ()=>{ fitPrint(); document.title = fileBase(); });
+  window.addEventListener("afterprint", ()=>{ document.title = BASE_TITLE; });
+  window.addEventListener("beforeprint", sync);
+
+  const dlgC = document.getElementById("dlgConfirm");
+  document.getElementById("btnNew").onclick = ()=> dlgC.showModal();
+  document.getElementById("noNew").onclick = ()=> dlgC.close();
+  document.getElementById("yesNew").onclick = ()=>{
+    fields.forEach(el=> el.value = ""); ptypeSel.value = "0"; updateGrades();
+    checks = [false,false,false,false,false];
+    renderChecks(); sync(); save(); dlgC.close();
+    window.scrollTo(0,0);
+  };
+
+  const dlgL = document.getElementById("dlgLists");
+  document.getElementById("btnLists").onclick = ()=>{
+    dlgL.querySelectorAll("[data-list-edit]").forEach(ta=> ta.value = (lists[ta.dataset.listEdit]||[]).join("\n"));
+    dlgL.showModal();
+  };
+  document.getElementById("closeLists").onclick = ()=> dlgL.close();
+  document.getElementById("saveLists").onclick = ()=>{
+    dlgL.querySelectorAll("[data-list-edit]").forEach(ta=>{
+      lists[ta.dataset.listEdit] = ta.value.split("\n").map(s=>s.trim()).filter(Boolean);
+    });
+    store.set(LS_LISTS, lists); fillOptions(); sync(); dlgL.close();
+  };
+
+  /* ---------- export a new copy of the app with the current lists built in ---------- */
+  document.getElementById("exportApp").onclick = async ()=>{
+    // take what's in the boxes right now (even if "حفظ" wasn't pressed)
+    dlgL.querySelectorAll("[data-list-edit]").forEach(ta=>{
+      lists[ta.dataset.listEdit] = ta.value.split("\n").map(x=>x.trim()).filter(Boolean);
+    });
+    store.set(LS_LISTS, lists); fillOptions();
+    const out = {};
+    Object.keys(DEFAULT_LISTS).concat(Object.keys(lists)).forEach(k=>{ out[k] = lists[k] || DEFAULT_LISTS[k] || []; });
+    const html = PRISTINE.replace(/(<script type="application\/json" id="builtin-lists">)[\s\S]*?(<\/script>)/,
+      (_,a,b)=> a + "\n" + JSON.stringify(out, null, 1).replace(/</g,"\\u003c") + "\n" + b);
+    const blob = new Blob([html], {type:"text/html"});
+    if(downloads){
+      try{ await downloads.save({filename:"index.html", data:blob}); }catch(e){}
+    } else {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = "index.html";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+    }
+  };
+
+  load();
+})();
+</script>
+  <!-- ===== تسجيل الدخول وتسجيل التسليمات (Firebase) ===== -->
+<style>
+  .authov{position:fixed;inset:0;z-index:9999;background:#e6e8eb;display:flex;align-items:center;justify-content:center;direction:rtl;font-family:"Segoe UI",Tahoma,Arial,sans-serif}
+  .authov[hidden]{display:none}
+  .authbox{background:#fff;border-radius:12px;padding:24px;width:min(360px,92vw);box-shadow:0 4px 20px rgba(0,0,0,.18)}
+  .authbox h2{margin:0 0 14px;font-size:18px;text-align:center}
+  .authbox input{width:100%;margin-bottom:10px;padding:10px;font-size:15px;border:1px solid #9aa4b0;border-radius:6px;box-sizing:border-box}
+  .authbox button{width:100%;padding:10px;font-size:15px;border:0;border-radius:6px;background:#1f5fbf;color:#fff;cursor:pointer}
+  .authmsg{color:#b00020;font-size:13px;min-height:18px;margin-bottom:8px;text-align:center}
+  a.btn{text-decoration:none;display:inline-block}
+  @media print{.authov{display:none!important}}
+</style>
+
+<div class="authov" id="authov">
+  <div class="authbox">
+    <h2>تسجيل الدخول</h2>
+    <div id="authload" style="text-align:center">جاري التحميل…</div>
+    <form id="authform" hidden>
+      <input id="authuser" placeholder="اسم المستخدم" autocomplete="username" autocapitalize="none" dir="ltr">
+      <input id="authpass" type="password" placeholder="الباسورد" autocomplete="current-password" dir="ltr">
+      <div class="authmsg" id="authmsg"></div>
+      <button type="submit">دخول</button>
+    </form>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp, increment }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBR-MeJoQ1MAIATbB9rW5ut14VXjixpM_c",
+  authDomain: "prg-screening.firebaseapp.com",
+  projectId: "prg-screening",
+  storageBucket: "prg-screening.firebasestorage.app",
+  messagingSenderId: "927135609781",
+  appId: "1:927135609781:web:c35a1027e813c8734f5ffc"
+};
+const ADMIN = "admin@prg.local";
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app), db = getFirestore(app);
+
+const ov = document.getElementById("authov"), form = document.getElementById("authform"),
+      load = document.getElementById("authload"), msg = document.getElementById("authmsg");
+
+// if the login service can't be reached, say so instead of staying on "loading"
+const timer = setTimeout(() => { load.textContent = "مش قادر أوصل لخدمة الدخول. اتأكد من النت وأعمل ريفريش."; }, 10000);
+
+/* toolbar items shown after login */
+const bar = document.querySelector(".toolbar");
+const who = document.createElement("span"); who.className = "saved";
+const outBtn = document.createElement("button"); outBtn.className = "btn"; outBtn.textContent = "تسجيل خروج";
+const adminLink = document.createElement("a"); adminLink.className = "btn"; adminLink.href = "admin.html"; adminLink.textContent = "لوحة الأدمن";
+outBtn.onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, u => {
+  clearTimeout(timer); load.hidden = true;
+  if (u) {
+    ov.hidden = true;
+    who.textContent = "👤 " + u.email.split("@")[0];
+    bar.append(who);
+    if (u.email === ADMIN) bar.append(adminLink); else adminLink.remove();
+    bar.append(outBtn);
+  } else {
+    who.remove(); adminLink.remove(); outBtn.remove();
+    ov.hidden = false; form.hidden = false;
+  }
+});
+
+form.addEventListener("submit", async e => {
+  e.preventDefault(); msg.textContent = "";
+  const name = document.getElementById("authuser").value.trim().toLowerCase().split("@")[0];
+  const pass = document.getElementById("authpass").value;
+  if (!name || !pass) { msg.textContent = "اكتب اسم المستخدم والباسورد"; return; }
+  try { await signInWithEmailAndPassword(auth, name + "@prg.local", pass); form.reset(); }
+  catch (err) { msg.textContent = err.code === "auth/network-request-failed" ? "مفيش اتصال بالنت" : "اسم المستخدم أو الباسورد غلط"; }
+});
+
+/* read what's written in the form */
+const val = k => (document.querySelector('[data-k="' + k + '"]')?.value || "").trim();
+function collect() {
+  const pt = document.querySelector('[data-k="ptype"]');
+  return {
+    code: val("desc1"), channel: val("channel"),
+    programType: pt && pt.selectedIndex >= 0 ? pt.options[pt.selectedIndex].text : "",
+    grade: val("grade"), subject: val("subject"), episode: val("episode"),
+    producer: val("producer"), presenter: val("presenter"), term: val("term"),
+    receivingDate: val("recvDate"), broadcastDate: val("bcDate")
+  };
+}
+
+/* one record per person per code; printing again only bumps the counter */
+async function record(u, d) {
+  const username = u.email.split("@")[0];
+  const ref = doc(db, "submissions", u.uid + "_" + encodeURIComponent(d.code));
+  const snap = await getDoc(ref);
+  if (!snap.exists()) {
+    await setDoc(ref, { ...d, uid: u.uid, username, ts: serverTimestamp(), lastPrintedAt: serverTimestamp(), prints: 1 });
+  } else {
+    await updateDoc(ref, { ...d, uid: u.uid, username, lastPrintedAt: serverTimestamp(), prints: increment(1) });
+  }
+}
+
+/* intercept the print button: record first, then let the normal print continue */
+/* printing needs a login but no longer counts; a delivery is counted when the PDF is saved */
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest("#btnPrint");
+  if (!b || auth.currentUser) return;
+  e.stopPropagation(); e.preventDefault(); ov.hidden = false; form.hidden = false;
+}, true);
+
+const pdfBtn = document.getElementById("btnSavePdf");
+const PDF_TXT = pdfBtn ? pdfBtn.textContent : "";
+const loadJs = src => new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+async function makePdf() {
+  if (!window.htmlToImage) await loadJs("https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js");
+  if (!window.jspdf) await loadJs("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+  window.dispatchEvent(new Event("beforeprint"));               // fills the print copy of every field
+  document.documentElement.style.setProperty("--pz", "1");
+  const sheet = document.getElementById("sheet");
+  sheet.classList.add("pdfmode");
+  try {
+    const url = await window.htmlToImage.toJpeg(sheet, { pixelRatio: 2.5, quality: 0.95, backgroundColor: "#ffffff" });
+    const img = new Image(); img.src = url; await img.decode();
+    const pdf = new window.jspdf.jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+    const M = 6, maxW = 210 - 2 * M, maxH = 297 - 2 * M;
+    let w = maxW, h = img.height * w / img.width;
+    if (h > maxH) { h = maxH; w = img.width * h / img.height; }
+    pdf.addImage(url, "JPEG", (210 - w) / 2, M, w, h);
+    return pdf.output("blob");
+  } finally {
+    sheet.classList.remove("pdfmode");
+    window.dispatchEvent(new Event("afterprint"));
+  }
+}
+pdfBtn?.addEventListener("click", async () => {
+  const u = auth.currentUser;
+  if (!u) { ov.hidden = false; form.hidden = false; return; }
+  const d = collect();
+  if (!d.code) { alert("الكود (DESCRIPTION) فاضي. اختار البرنامج والصف والمادة واكتب رقم الحلقة الأول."); return; }
+  const done = t => { pdfBtn.textContent = t; setTimeout(() => { pdfBtn.textContent = PDF_TXT; pdfBtn.disabled = false; }, 2500); };
+  pdfBtn.disabled = true; pdfBtn.textContent = "⏳ جاري تجهيز الـ PDF…";
+  let blob;
+  try { blob = await makePdf(); }
+  catch (err) { alert("معرفتش أجهز الـ PDF. اتأكد من النت وجرّب تاني."); pdfBtn.textContent = PDF_TXT; pdfBtn.disabled = false; return; }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = d.code.replace(/[\\/:*?"<>|]+/g, "_") + ".pdf";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  try { await record(u, d); done("✓ اتحفظ واتسجّل"); }
+  catch (err) {
+    alert(err.code === "permission-denied"
+      ? "الـ PDF اتحفظ بس التسليم متسجلش: حسابك مش مفعّل أو موقوف. كلّم الأدمن."
+      : "الـ PDF اتحفظ بس التسليم متسجلش (" + (err.code || err.message) + "). اتأكد من النت ودوس حفظ PDF تاني.");
+    done(PDF_TXT);
+  }
+});
+</script>
+
+<!-- ===== تغيير الباسورد (إجباري أول مرة بالباسورد المؤقت) ===== -->
+<style>
+  .pwov{position:fixed;inset:0;z-index:10000;background:rgba(20,28,38,.85);display:flex;align-items:center;justify-content:center;direction:rtl;font-family:"Segoe UI",Tahoma,Arial,sans-serif}
+  .pwov[hidden]{display:none}
+  .pwbox{background:#fff;border-radius:12px;padding:24px;width:min(380px,92vw);box-shadow:0 4px 20px rgba(0,0,0,.25)}
+  .pwbox h2{margin:0 0 6px;font-size:18px;text-align:center}
+  .pwbox p{margin:0 0 14px;font-size:13px;color:#444;text-align:center}
+  .pwbox input{width:100%;margin-bottom:10px;padding:10px;font-size:15px;border:1px solid #9aa4b0;border-radius:6px;box-sizing:border-box}
+  .pwbox button{width:100%;padding:10px;font-size:15px;border:0;border-radius:6px;background:#1f5fbf;color:#fff;cursor:pointer}
+  .pwbox button.sec{background:#e3e6ea;color:#111;margin-top:8px}
+  .pwmsg{color:#b00020;font-size:13px;min-height:18px;margin-bottom:8px;text-align:center}
+  .pwmsg.ok{color:#116611}
+  @media print{.pwov{display:none!important}}
+</style>
+
+<div class="pwov" id="pwov" hidden>
+  <div class="pwbox">
+    <h2>تغيير الباسورد</h2>
+    <p id="pwnote">اختار باسورد جديد ليك.</p>
+    <form id="pwform">
+      <input id="pwold" type="password" placeholder="الباسورد الحالي" autocomplete="current-password" dir="ltr">
+      <input id="pwnew" type="password" placeholder="الباسورد الجديد (6 حروف على الأقل)" autocomplete="new-password" dir="ltr">
+      <input id="pwnew2" type="password" placeholder="اكتب الباسورد الجديد تاني" autocomplete="new-password" dir="ltr">
+      <div class="pwmsg" id="pwmsg"></div>
+      <button type="submit" id="pwsave">حفظ الباسورد الجديد</button>
+      <button type="button" class="sec" id="pwcancel">إلغاء</button>
+    </form>
+  </div>
+</div>
+
+<script type="module">
+import { getApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, onAuthStateChanged, EmailAuthProvider, reauthenticateWithCredential, updatePassword }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { getFirestore, doc, getDoc, updateDoc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+// uses the same Firebase app that the login script above already started
+const app = getApp();
+const auth = getAuth(app), db = getFirestore(app);
+const ADMIN = "admin@prg.local";
+
+const $ = id => document.getElementById(id);
+const ov = $("pwov"), form = $("pwform"), msg = $("pwmsg");
+let forced = false;
+
+// toolbar button, shown while someone is signed in
+const pwBtn = document.createElement("button");
+pwBtn.className = "btn"; pwBtn.textContent = "🔑 تغيير الباسورد";
+pwBtn.onclick = () => open(false);
+
+function open(isForced){
+  forced = isForced;
+  form.reset(); msg.textContent = ""; msg.className = "pwmsg";
+  $("pwnote").textContent = isForced
+    ? "دي أول مرة تدخل. لازم تغيّر الباسورد المؤقت اللي خدته من الأدمن قبل ما تستخدم الاستمارة."
+    : "اختار باسورد جديد ليك.";
+  $("pwcancel").hidden = isForced;          // no way out of the forced change
+  ov.hidden = false;
+  setTimeout(() => $("pwold").focus(), 50);
+}
+function close(){ ov.hidden = true; forced = false; }
+$("pwcancel").onclick = close;
+
+onAuthStateChanged(auth, async u => {
+  if (!u) { pwBtn.remove(); close(); return; }
+  document.querySelector(".toolbar")?.append(pwBtn);
+  if (u.email === ADMIN) return;
+  try {
+    const snap = await getDoc(doc(db, "allowed", u.uid));
+    if (snap.exists() && snap.data().mustChange === true) open(true);
+  } catch (e) { /* no access / offline: nothing to force */ }
+});
+
+form.addEventListener("submit", async e => {
+  e.preventDefault(); msg.className = "pwmsg"; msg.textContent = "";
+  const u = auth.currentUser;
+  if (!u) { close(); return; }
+  const oldPw = $("pwold").value, pw = $("pwnew").value, pw2 = $("pwnew2").value;
+  if (!oldPw || !pw) { msg.textContent = "اكتب الباسورد الحالي والجديد"; return; }
+  if (pw.length < 6) { msg.textContent = "الباسورد الجديد لازم يكون 6 حروف على الأقل"; return; }
+  if (pw !== pw2) { msg.textContent = "الباسورد الجديد مش زي اللي كتبته تاني"; return; }
+  if (pw === oldPw) { msg.textContent = "اختار باسورد مختلف عن الحالي"; return; }
+  $("pwsave").disabled = true;
+  try {
+    await reauthenticateWithCredential(u, EmailAuthProvider.credential(u.email, oldPw));
+    await updatePassword(u, pw);
+    if (u.email !== ADMIN) {
+      try { await updateDoc(doc(db, "allowed", u.uid), { mustChange: false, pwChangedAt: serverTimestamp() }); }
+      catch (e2) { /* password already changed; the flag just stays */ }
+    }
+    msg.className = "pwmsg ok"; msg.textContent = "✔ الباسورد اتغيّر";
+    setTimeout(close, 1200);
+  } catch (err) {
+    const c = err.code || "";
+    msg.textContent =
+      (c === "auth/invalid-credential" || c === "auth/wrong-password") ? "الباسورد الحالي غلط" :
+      c === "auth/weak-password" ? "الباسورد الجديد ضعيف، اختار واحد أطول" :
+      c === "auth/too-many-requests" ? "محاولات كتير، استنى شوية وجرّب تاني" :
+      c === "auth/network-request-failed" ? "مفيش اتصال بالنت" :
+      "خطأ: " + (c || err.message);
+  } finally {
+    $("pwsave").disabled = false;
+  }
+});
+</script>
+
+<!-- ===== اسم المنتج تلقائي من الحساب + زرار القوائم للأدمن بس ===== -->
+<style>
+  .combo.locked::after,.combo.locked .cl{display:none!important}
+  .combo.locked input{background:#f3f5f8;cursor:default;padding-left:6px}
+</style>
+<script type="module">
+import { getApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+const app = getApp();
+const auth = getAuth(app), db = getFirestore(app);
+const ADMIN = "admin@prg.local";
+
+// fallback for accounts made before the admin page had an Arabic-name field
+const KNOWN = {
+  "diaa.atef":"ضياء عاطف", "ahmed.diaa":"أحمد ضياء", "nouf.sennary":"نوف سناري",
+  "ahmed.hegawy":"أحمد الحجاوي", "ayman.youssef":"أيمن يوسف", "zahra.hassan":"زهرة حسن",
+  "ahmed.diab":"أحمد دياب", "haitham.elazar":"هيثم الأزعر", "haitham.elsawy":"هيثم الصاوي",
+  "aya.emad":"آية عماد", "mazen.shahin":"مازن شاهين", "diaa.roshdy":"ضياء رشدي"
+};
+
+const input = document.querySelector('[data-k="producer"]');
+const box = input && input.closest(".combo");
+let myName = "";
+const listsBtn = document.getElementById("btnLists");
+if (listsBtn) listsBtn.style.display = "none";                         // only the admin edits the lists
+
+function apply(){
+  if (!input || !myName) return;
+  if (input.value !== myName) {
+    input.value = myName;
+    input.dispatchEvent(new Event("input", { bubbles: true }));   // keeps the print copy and the saved draft in step
+  }
+}
+function lock(on){
+  if (!input) return;
+  input.readOnly = on;
+  box && box.classList.toggle("locked", on);
+  input.title = on ? "اسم المنتج بيتكتب تلقائي من حسابك" : "";
+}
+
+onAuthStateChanged(auth, async u => {
+  myName = "";
+  if (listsBtn) listsBtn.style.display = (u && u.email === ADMIN) ? "" : "none";
+  if (!u || u.email === ADMIN) { lock(false); return; }     // admin keeps the normal drop-down
+  const username = u.email.split("@")[0];
+  try {
+    const snap = await getDoc(doc(db, "allowed", u.uid));
+    if (snap.exists() && snap.data().displayName) myName = String(snap.data().displayName).trim();
+  } catch (e) { /* offline: fall back below */ }
+  if (!myName) myName = KNOWN[username] || "";
+  if (!myName) { lock(false); return; }                       // no name on file: leave the field as it was
+  lock(true); apply();
+});
+
+// "استمارة جديدة" empties every field: put the name back right after
+document.getElementById("yesNew")?.addEventListener("click", () => setTimeout(apply, 0));
+// and make sure it's there whenever the person is about to print
+document.getElementById("btnPrint")?.addEventListener("pointerdown", apply, true);
+window.addEventListener("beforeprint", apply);
+</script>
+
+<!-- ===== لو الصفحة مفتوحة جوه واتساب/فيسبوك: الطباعة مش مدعومة، نوجّه لـ Chrome/Safari ===== -->
+<style>
+  .inapp{position:relative;z-index:9000;background:#fff3cd;color:#5c4400;border-bottom:2px solid #e0b100;
+    padding:10px 14px;direction:rtl;font-family:"Segoe UI",Tahoma,Arial,sans-serif;font-size:14px;line-height:1.6;text-align:center}
+  .inapp b{display:block;font-size:15px;margin-bottom:4px}
+  .inapp a,.inapp button{display:inline-block;margin:6px 4px 0;padding:8px 14px;border:0;border-radius:6px;
+    background:#1f5fbf;color:#fff;font:inherit;font-size:14px;text-decoration:none;cursor:pointer}
+  .inapp button.sec{background:#5c6773}
+  @media print{.inapp{display:none!important}}
+</style>
+<script>
+(function(){
+  var ua = navigator.userAgent || "";
+  var inApp = /WhatsApp|FBAN|FBAV|FB_IAB|Instagram|Line\/|Snapchat|Messenger|TikTok|; wv\)/i.test(ua);
+  if (!inApp) return;
+  var isAndroid = /Android/i.test(ua), isIOS = /iPhone|iPad|iPod/i.test(ua);
+  var url = location.href;
+  var openHref = isAndroid
+    ? "intent://" + url.replace(/^https?:\/\//, "") + "#Intent;scheme=https;package=com.android.chrome;end"
+    : isIOS ? "x-safari-" + url : url;
+  var bar = document.createElement("div");
+  bar.className = "inapp";
+  bar.innerHTML = "<b>⚠️ الطباعة مش هتشتغل من جوه واتساب</b>" +
+    "افتح الاستمارة في " + (isIOS ? "Safari" : "Chrome") + " عشان تقدر تطبع." +
+    "<br><a id='inappOpen' href='" + openHref + "'>افتح في " + (isIOS ? "Safari" : "Chrome") + "</a>" +
+    "<button class='sec' id='inappCopy' type='button'>انسخ اللينك</button>";
+  document.body.insertBefore(bar, document.body.firstChild);
+  document.getElementById("inappCopy").onclick = function(){
+    var b = this;
+    var done = function(){ b.textContent = "✓ اتنسخ، الصقه في " + (isIOS ? "Safari" : "Chrome"); };
+    if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, function(){ prompt("انسخ اللينك ده:", url); });
+    else prompt("انسخ اللينك ده:", url);
+  };
+  // the print button can't work here: say why instead of doing nothing (and don't record a delivery)
+  window.addEventListener("click", function(e){
+    if (!(e.target.closest && e.target.closest("#btnPrint, #btnSavePdf"))) return;
+    e.stopImmediatePropagation(); e.preventDefault();
+    alert("الطباعة وحفظ الـ PDF مش مدعومين من جوه واتساب.\nدوس \"افتح في " + (isIOS ? "Safari" : "Chrome") + "\" اللي فوق، أو انسخ اللينك وافتحه هناك.");
+    window.scrollTo(0, 0);
+  }, true);
+})();
+</script>
+</body>
+</html>
